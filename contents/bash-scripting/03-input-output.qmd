@@ -1,0 +1,858 @@
+---
+title: "Module 3: INPUT & OUTPUT"
+---
+
+## 3.1 echo vs printf
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       echo vs printf                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   echo                              printf                              │
+│   ────                              ──────                              │
+│   • Simple, quick output            • Formatted output (like C)         │
+│   • Adds newline by default         • NO automatic newline              │
+│   • Behavior varies between         • Consistent across systems         │
+│     systems (bash vs sh)            • More control over formatting      │
+│   • Good for simple messages        • Good for precise formatting       │
+│                                                                         │
+│   When to use:                                                          │
+│   ├── echo  → Simple messages, debugging, quick output                  │
+│   └── printf → Tables, formatted numbers, portable scripts              │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### echo Basics
+
+```bash
+#!/usr/bin/env bash
+
+# Basic echo
+echo "Hello, World!"
+
+# Multiple arguments (separated by space)
+echo Hello World          # Output: Hello World
+
+# Variables
+name="Alice"
+echo "Hello, $name"       # Output: Hello, Alice
+
+# Suppress newline with -n
+echo -n "Loading..."      # No newline at end
+
+# Enable escape sequences with -e
+echo -e "Line1\nLine2"    # Interprets \n as newline
+echo -e "Tab\there"       # Interprets \t as tab
+echo -e "Red: \e[31mERROR\e[0m"  # ANSI colors
+
+# Common escape sequences (with -e)
+# \n  newline
+# \t  tab
+# \\  backslash
+# \e  escape (for ANSI codes)
+```
+
+### printf Basics
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    printf FORMAT SPECIFIERS                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   %s    String                                                          │
+│   %d    Decimal integer                                                 │
+│   %f    Floating point                                                  │
+│   %x    Hexadecimal (lowercase)                                         │
+│   %X    Hexadecimal (uppercase)                                         │
+│   %o    Octal                                                           │
+│   %%    Literal percent sign                                            │
+│                                                                         │
+│   Width & Precision:                                                    │
+│   %10s   Right-align, 10 chars wide                                     │
+│   %-10s  Left-align, 10 chars wide                                      │
+│   %05d   Zero-pad to 5 digits                                           │
+│   %.2f   2 decimal places                                               │
+│   %10.2f 10 chars wide, 2 decimals                                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Basic printf (no automatic newline!)
+printf "Hello, World!\n"
+
+# Format strings
+name="Alice"
+age=30
+printf "Name: %s, Age: %d\n" "$name" "$age"
+
+# Number formatting
+printf "Integer: %d\n" 42
+printf "Float: %f\n" 3.14159
+printf "2 decimals: %.2f\n" 3.14159       # Output: 3.14
+printf "Padded: %05d\n" 42                 # Output: 00042
+printf "Hex: %x, %X\n" 255 255            # Output: ff, FF
+
+# String width and alignment
+printf "|%10s|\n" "hello"     # |     hello|  (right-aligned)
+printf "|%-10s|\n" "hello"    # |hello     |  (left-aligned)
+
+# Practical: Table formatting
+printf "%-15s %8s %10s\n" "Name" "Count" "Status"
+printf "%-15s %8d %10s\n" "file1.txt" 1234 "OK"
+printf "%-15s %8d %10s\n" "file2.txt" 567 "ERROR"
+printf "%-15s %8d %10s\n" "report.log" 89012 "OK"
+```
+
+### Practical Example: Progress Indicator
+
+```bash
+#!/usr/bin/env bash
+
+# Spinner animation
+spinner() {
+    local chars="/-\|"
+    local i=0
+    while true; do
+        printf "\r[%c] Processing..." "${chars:i++%4:1}"
+        sleep 0.1
+    done
+}
+
+# Progress bar
+progress_bar() {
+    local percent=$1
+    local width=50
+    local filled=$((percent * width / 100))
+    local empty=$((width - filled))
+
+    printf "\r["
+    printf "%${filled}s" | tr ' ' '#'
+    printf "%${empty}s" | tr ' ' '-'
+    printf "] %3d%%" "$percent"
+}
+
+# Demo
+for i in {0..100..5}; do
+    progress_bar "$i"
+    sleep 0.1
+done
+printf "\nDone!\n"
+```
+
+---
+
+## 3.2 Reading User Input (read)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      THE read COMMAND                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   read [options] variable_name(s)                                       │
+│                                                                         │
+│   Common Options:                                                       │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  -p "prompt"    Display prompt before reading                   │   │
+│   │  -s             Silent mode (for passwords)                     │   │
+│   │  -n N           Read only N characters                          │   │
+│   │  -t N           Timeout after N seconds                         │   │
+│   │  -r             Raw input (don't interpret backslashes)         │   │
+│   │  -a array       Read into array (word splitting)                │   │
+│   │  -d 'char'      Use char as delimiter instead of newline        │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Input
+
+```bash
+#!/usr/bin/env bash
+
+# Simple read
+echo "What is your name?"
+read name
+echo "Hello, $name!"
+
+# With prompt (-p)
+read -p "Enter your age: " age
+echo "You are $age years old"
+
+# Multiple variables
+echo "Enter first and last name:"
+read first last
+echo "First: $first, Last: $last"
+
+# If fewer values than variables, extras are empty
+# If more values than variables, last one gets the rest
+read -p "Enter three words: " a b c
+echo "a=$a, b=$b, c=$c"
+# Input: "one two three four"
+# Output: a=one, b=two, c=three four
+```
+
+### Password Input and Timeouts
+
+```bash
+#!/usr/bin/env bash
+
+# Silent input for passwords (-s)
+read -sp "Enter password: " password
+echo  # Add newline after silent input
+echo "Password length: ${#password}"
+
+# Timeout (-t)
+if read -t 5 -p "Quick! Enter your name (5 sec): " name; then
+    echo "Hello, $name!"
+else
+    echo -e "\nToo slow!"
+fi
+
+# Limited characters (-n)
+read -n 1 -p "Continue? (y/n): " answer
+echo  # Newline
+if [[ "$answer" == "y" ]]; then
+    echo "Continuing..."
+fi
+
+# Read single keypress
+read -n 1 -s -p "Press any key to continue..."
+echo
+```
+
+### Reading into Arrays
+
+```bash
+#!/usr/bin/env bash
+
+# Read words into array (-a)
+echo "Enter several words:"
+read -a words
+echo "You entered ${#words[@]} words"
+echo "First word: ${words[0]}"
+echo "All words: ${words[@]}"
+
+# Read file lines into array
+mapfile -t lines < file.txt       # Bash 4+
+# or
+readarray -t lines < file.txt     # Same as mapfile
+
+echo "File has ${#lines[@]} lines"
+echo "First line: ${lines[0]}"
+```
+
+### IFS (Internal Field Separator)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    IFS - Internal Field Separator                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   IFS controls how Bash splits strings into words                       │
+│   Default: space, tab, newline                                          │
+│                                                                         │
+│   Common uses:                                                          │
+│   IFS=':'    Split on colons (parsing PATH, /etc/passwd)                │
+│   IFS=','    Split on commas (parsing CSV)                              │
+│   IFS=$'\n'  Split on newlines only                                     │
+│   IFS=''     No splitting                                               │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Parse colon-separated values
+line="john:x:1000:1000:John Doe:/home/john:/bin/bash"
+IFS=':' read -r user _ uid gid name home shell <<< "$line"
+echo "User: $user"
+echo "UID: $uid"
+echo "Home: $home"
+
+# Parse CSV (simple case)
+csv_line="Alice,30,Engineer"
+IFS=',' read -r name age job <<< "$csv_line"
+echo "$name is a $age year old $job"
+
+# Preserve IFS - best practice
+old_ifs="$IFS"
+IFS=','
+# ... do work ...
+IFS="$old_ifs"
+
+# Or use subshell (changes don't affect parent)
+(
+    IFS=':'
+    read -r a b c <<< "1:2:3"
+    echo "$a $b $c"
+)
+# IFS is unchanged here
+```
+
+### Reading Files Line by Line
+
+```bash
+#!/usr/bin/env bash
+
+# Method 1: while read loop (most common)
+while IFS= read -r line; do
+    echo "Line: $line"
+done < file.txt
+
+# Method 2: Reading from command output
+while IFS= read -r file; do
+    echo "Found: $file"
+done < <(find . -name "*.txt")
+
+# Method 3: Process each line with line number
+line_num=0
+while IFS= read -r line; do
+    ((line_num++))
+    echo "$line_num: $line"
+done < file.txt
+
+# IMPORTANT: IFS= and -r explained
+# IFS=       Prevents trimming of leading/trailing whitespace
+# -r         Prevents backslash interpretation
+# Together, they preserve the exact line content
+```
+
+---
+
+## 3.3 Command Substitution
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    COMMAND SUBSTITUTION                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Captures the OUTPUT of a command into a variable                      │
+│                                                                         │
+│   Two syntaxes:                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  $(command)      Modern, recommended                            │   │
+│   │  `command`       Legacy (backticks) - avoid                     │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Why prefer $() ?                                                      │
+│   ├── Can be nested: $(cmd1 $(cmd2))                                    │
+│   ├── Easier to read                                                    │
+│   ├── Clearer where it starts and ends                                  │
+│   └── Backticks can be confused with single quotes                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Usage
+
+```bash
+#!/usr/bin/env bash
+
+# Capture command output
+current_date=$(date +%Y-%m-%d)
+current_time=$(date +%H:%M:%S)
+echo "Date: $current_date, Time: $current_time"
+
+# Current directory
+current_dir=$(pwd)
+echo "Working in: $current_dir"
+
+# File count
+num_files=$(ls -1 | wc -l)
+echo "Files in directory: $num_files"
+
+# System info
+hostname=$(hostname)
+username=$(whoami)
+echo "User $username on $hostname"
+
+# Use directly in strings
+echo "Today is $(date +%A)"
+echo "You have $(ls *.txt 2>/dev/null | wc -l) text files"
+```
+
+### Nesting Command Substitution
+
+```bash
+#!/usr/bin/env bash
+
+# Nested $() - works perfectly
+dir_of_script=$(dirname $(readlink -f "$0"))
+echo "Script is in: $dir_of_script"
+
+# More readable with variables
+script_path=$(readlink -f "$0")
+script_dir=$(dirname "$script_path")
+
+# Nested backticks - ugly and confusing (don't do this)
+# dir_of_script=`dirname \`readlink -f "$0"\``  # Requires escaping!
+```
+
+### Practical Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Generate unique filename
+backup_file="backup_$(date +%Y%m%d_%H%M%S).tar.gz"
+echo "Creating: $backup_file"
+
+# Get script directory (useful pattern)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "Script located at: $SCRIPT_DIR"
+
+# Arithmetic with command output
+total_size=$(du -sb /tmp | cut -f1)
+size_mb=$((total_size / 1024 / 1024))
+echo "Temp folder size: ${size_mb}MB"
+
+# Conditional based on command output
+if [[ $(whoami) == "root" ]]; then
+    echo "Running as root"
+else
+    echo "Running as normal user"
+fi
+
+# Store multiline output
+file_list=$(ls -la)
+echo "$file_list"  # Quoted preserves newlines
+
+# Count specific items
+error_count=$(grep -c "ERROR" logfile.txt 2>/dev/null || echo 0)
+echo "Found $error_count errors"
+```
+
+---
+
+## 3.4 Redirection
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      FILE DESCRIPTORS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Every process has three standard streams:                             │
+│                                                                         │
+│   ┌─────────┐         ┌─────────┐         ┌─────────┐                   │
+│   │ stdin   │  ───►   │ Command │  ───►   │ stdout  │                   │
+│   │  (0)    │         │         │  ───►   │  (1)    │                   │
+│   └─────────┘         │         │         └─────────┘                   │
+│    keyboard           │         │          terminal                     │
+│                       │         │                                       │
+│                       └────┬────┘         ┌─────────┐                   │
+│                            │       ───►   │ stderr  │                   │
+│                            │              │  (2)    │                   │
+│                            │              └─────────┘                   │
+│                            │               terminal                     │
+│                            │                                            │
+│   0 = stdin  (standard input)                                           │
+│   1 = stdout (standard output) - normal output                          │
+│   2 = stderr (standard error)  - error messages                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Output Redirection
+
+```bash
+#!/usr/bin/env bash
+
+# Redirect stdout to file (overwrite)
+echo "Hello" > output.txt
+
+# Redirect stdout to file (append)
+echo "World" >> output.txt
+
+# Redirect stderr to file
+ls /nonexistent 2> errors.txt
+
+# Redirect both stdout and stderr to same file
+command > output.txt 2>&1           # Traditional
+command &> output.txt               # Bash shorthand
+
+# Redirect stdout and stderr to different files
+command > stdout.txt 2> stderr.txt
+
+# Discard output (send to /dev/null)
+command > /dev/null                 # Discard stdout
+command 2> /dev/null                # Discard stderr
+command &> /dev/null                # Discard both
+```
+
+### Input Redirection
+
+```bash
+#!/usr/bin/env bash
+
+# Read from file instead of keyboard
+wc -l < file.txt
+
+# Sort contents of file
+sort < unsorted.txt > sorted.txt
+
+# Here-string (<<<) - single line input
+grep "pattern" <<< "search in this string"
+
+# Read variable content as input
+data="line1
+line2
+line3"
+wc -l <<< "$data"  # Output: 3
+```
+
+### Here Documents (heredoc)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      HERE DOCUMENTS                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   << DELIMITER    Variables ARE expanded                                │
+│   << 'DELIMITER'  Variables NOT expanded (literal)                      │
+│   <<- DELIMITER   Leading TABS stripped (not spaces)                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+name="Alice"
+
+# Basic heredoc - variables expanded
+cat << EOF
+Hello, $name!
+Today is $(date +%A).
+This is a multi-line message.
+EOF
+
+# Quoted delimiter - literal content (no expansion)
+cat << 'EOF'
+Hello, $name!
+The variable $name is NOT expanded.
+Neither is $(date).
+EOF
+
+# Heredoc to file
+cat << EOF > config.txt
+# Configuration file
+user=$USER
+home=$HOME
+date=$(date)
+EOF
+
+# Heredoc with indentation (<<- strips leading tabs)
+if true; then
+	cat <<- EOF
+	This line is indented with tabs.
+	Tabs are stripped from output.
+	EOF
+fi
+```
+
+### Advanced Redirection
+
+```bash
+#!/usr/bin/env bash
+
+# Combine stdout and stderr in specific order
+# 2>&1 means "redirect fd 2 to where fd 1 goes"
+command 2>&1 | tee log.txt     # Both to screen and file
+
+# Redirect stderr to stdout, then pipe
+./script.sh 2>&1 | grep "ERROR"
+
+# Swap stdout and stderr (rarely needed)
+command 3>&1 1>&2 2>&3
+
+# Close a file descriptor
+exec 2>&-  # Close stderr
+
+# Open file for reading and writing
+exec 3<> file.txt    # Open fd 3 for read/write
+echo "new data" >&3  # Write to fd 3
+exec 3>&-            # Close fd 3
+
+# Redirect within a block
+{
+    echo "stdout message"
+    echo "stderr message" >&2
+} > stdout.txt 2> stderr.txt
+```
+
+### Practical Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Log all output from a script section
+{
+    echo "=== Starting backup ==="
+    tar -czf backup.tar.gz /data
+    echo "=== Backup complete ==="
+} >> backup.log 2>&1
+
+# Suppress errors but keep output
+find /var -name "*.log" 2>/dev/null
+
+# Check if command succeeds (ignore output)
+if grep -q "pattern" file.txt 2>/dev/null; then
+    echo "Pattern found"
+fi
+
+# Capture stderr only
+error_msg=$(command 2>&1 >/dev/null)
+
+# Tee - write to file AND stdout
+echo "Important message" | tee -a log.txt
+
+# Multiple outputs with tee
+command | tee file1.txt | tee file2.txt | grep "pattern"
+```
+
+---
+
+## 3.5 Pipes and Process Substitution
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           PIPES                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Pipes connect stdout of one command to stdin of another               │
+│                                                                         │
+│   ┌─────────┐      ┌─────────┐      ┌─────────┐                         │
+│   │ cmd1    │──►   │ cmd2    │──►   │ cmd3    │──► output               │
+│   │         │ pipe │         │ pipe │         │                         │
+│   └─────────┘      └─────────┘      └─────────┘                         │
+│                                                                         │
+│   Each command runs in a SUBSHELL (separate process)                    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Pipes
+
+```bash
+#!/usr/bin/env bash
+
+# Chain commands together
+cat file.txt | grep "error" | wc -l
+
+# Common patterns
+ls -la | head -10              # First 10 files
+ps aux | grep nginx            # Find nginx processes
+cat log.txt | sort | uniq      # Unique sorted lines
+history | tail -20             # Last 20 commands
+
+# Build up a pipeline
+cat access.log |               # Read file
+    grep "404" |               # Filter 404 errors
+    cut -d' ' -f1 |            # Extract IP addresses
+    sort |                     # Sort IPs
+    uniq -c |                  # Count unique
+    sort -rn |                 # Sort by count (descending)
+    head -10                   # Top 10
+```
+
+### The Pipeline Gotcha
+
+```bash
+#!/usr/bin/env bash
+
+# WARNING: Variables in pipes are in subshells!
+count=0
+echo -e "a\nb\nc" | while read -r line; do
+    ((count++))
+done
+echo "Count: $count"  # Output: 0 (not 3!)
+
+# Why? The while loop runs in a subshell (due to pipe)
+# The subshell's count variable is separate from parent
+
+# Solution 1: Process substitution
+count=0
+while read -r line; do
+    ((count++))
+done < <(echo -e "a\nb\nc")
+echo "Count: $count"  # Output: 3 ✓
+
+# Solution 2: Here-string for simple cases
+count=0
+while read -r line; do
+    ((count++))
+done <<< "$(echo -e "a\nb\nc")"
+echo "Count: $count"  # Output: 3 ✓
+
+# Solution 3: lastpipe option (Bash 4.2+)
+shopt -s lastpipe
+count=0
+echo -e "a\nb\nc" | while read -r line; do
+    ((count++))
+done
+echo "Count: $count"  # Output: 3 ✓
+```
+
+### Process Substitution
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PROCESS SUBSTITUTION                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   <(command)   Treat command output as a FILE (for reading)             │
+│   >(command)   Treat command input as a FILE (for writing)              │
+│                                                                         │
+│   Creates a temporary named pipe (FIFO) that command reads/writes       │
+│                                                                         │
+│   Use cases:                                                            │
+│   ├── Commands that need filenames, not stdin                           │
+│   ├── Comparing output of two commands                                  │
+│   └── Avoiding subshell variable scope issues                           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Compare two command outputs
+diff <(ls dir1) <(ls dir2)
+
+# Compare sorted files without creating temp files
+diff <(sort file1.txt) <(sort file2.txt)
+
+# Use with commands that require filenames
+# wc can read from stdin, but some commands can't
+paste <(cut -f1 file.txt) <(cut -f2 file.txt)
+
+# Read from process substitution
+while read -r line; do
+    echo "Processing: $line"
+done < <(find . -name "*.txt")
+
+# Multiple inputs
+join <(sort file1.txt) <(sort file2.txt)
+
+# Output process substitution (less common)
+command | tee >(grep "error" > errors.txt) >(grep "warn" > warnings.txt)
+```
+
+### Practical Pipeline Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Find largest files
+find . -type f -exec du -h {} + 2>/dev/null |
+    sort -rh |
+    head -10
+
+# Analyze web server logs
+cat access.log |
+    awk '{print $1}' |      # Extract IPs
+    sort |
+    uniq -c |
+    sort -rn |
+    head -10 |
+    while read count ip; do
+        echo "$ip: $count requests"
+    done
+
+# Process CSV file
+cat data.csv |
+    tail -n +2 |                    # Skip header
+    cut -d',' -f2,4 |               # Extract columns 2 and 4
+    sort -t',' -k2 -n |             # Sort by column 2 numerically
+    head -20
+
+# Find and process files
+find . -name "*.log" -mtime -7 |    # Logs from last 7 days
+    while IFS= read -r file; do
+        echo "=== $file ==="
+        grep -c "ERROR" "$file"
+    done
+
+# Combine multiple sources
+cat <(head -5 file1.txt) <(head -5 file2.txt) | sort
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: User Greeting Script
+Create a script that:
+1. Prompts for the user's name (with timeout)
+2. Prompts for their favorite color
+3. Displays a formatted greeting using printf
+
+```bash
+# Expected interaction:
+Enter your name (10 sec timeout): Alice
+Enter your favorite color: blue
+
+╔════════════════════════════════╗
+║  Hello, Alice!                 ║
+║  Your favorite color is blue   ║
+╚════════════════════════════════╝
+```
+
+### Exercise 2: Log Analyzer
+Write a script that reads a log file and:
+1. Counts total lines
+2. Counts lines containing "ERROR"
+3. Counts lines containing "WARNING"
+4. Displays results in a formatted table
+
+### Exercise 3: File Stats Pipeline
+Create a one-liner pipeline that:
+1. Lists all `.sh` files in current directory
+2. Counts lines in each
+3. Sorts by line count (descending)
+4. Shows top 5
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 INPUT/OUTPUT CHEAT SHEET                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  OUTPUT                           INPUT                                 │
+│  echo "text"      simple output   read var           read into var      │
+│  echo -n "text"   no newline      read -p "prompt"   with prompt        │
+│  echo -e "a\tb"   escape codes    read -s            silent (password)  │
+│  printf "%s" val  formatted       read -t 5          5 sec timeout      │
+│                                   read -n 1          single char        │
+│                                   read -a arr        into array         │
+│                                                                         │
+│  REDIRECTION                      PIPES                                 │
+│  >   write (overwrite)            cmd1 | cmd2        connect stdout     │
+│  >>  write (append)               cmd 2>&1 | ...     include stderr     │
+│  <   read from file               <(cmd)             process sub (in)   │
+│  2>  redirect stderr              >(cmd)             process sub (out)  │
+│  &>  redirect both                                                      │
+│  2>&1  stderr to stdout                                                 │
+│                                                                         │
+│  COMMAND SUBSTITUTION             HERE DOCUMENTS                        │
+│  $(command)       capture output  << EOF             with expansion     │
+│  `command`        legacy (avoid)  << 'EOF'           literal            │
+│                                   <<< "string"       here-string        │
+│                                                                         │
+│  COMMON PATTERNS                                                        │
+│  cmd > /dev/null 2>&1            discard all output                     │
+│  cmd 2>/dev/null                 discard errors only                    │
+│  cmd | tee file                  output to screen AND file              │
+│  while read -r line; do ... done < file.txt   read file line by line   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```

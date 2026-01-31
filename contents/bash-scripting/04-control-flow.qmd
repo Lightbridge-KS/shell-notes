@@ -1,0 +1,916 @@
+---
+title: "Module 4: CONTROL FLOW"
+---
+
+## 4.1 Conditionals (if/elif/else)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      IF STATEMENT STRUCTURE                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   if CONDITION; then             ← Semicolon OR newline before 'then'   │
+│       commands                                                          │
+│   elif CONDITION; then           ← Optional: more conditions            │
+│       commands                                                          │
+│   else                           ← Optional: fallback                   │
+│       commands                                                          │
+│   fi                             ← Closes the if block                  │
+│                                                                         │
+│   CONDITION is actually a COMMAND - its exit status determines:        │
+│   ├── Exit 0 = true  (success)                                          │
+│   └── Exit non-0 = false (failure)                                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Syntax
+
+```bash
+#!/usr/bin/env bash
+
+# Single line (semicolons required)
+if [[ -f "file.txt" ]]; then echo "File exists"; fi
+
+# Multi-line (preferred for readability)
+if [[ -f "file.txt" ]]; then
+    echo "File exists"
+fi
+
+# With else
+if [[ -d "/tmp" ]]; then
+    echo "/tmp is a directory"
+else
+    echo "/tmp does not exist or is not a directory"
+fi
+
+# Full if/elif/else
+grade=85
+if [[ $grade -ge 90 ]]; then
+    echo "A"
+elif [[ $grade -ge 80 ]]; then
+    echo "B"
+elif [[ $grade -ge 70 ]]; then
+    echo "C"
+elif [[ $grade -ge 60 ]]; then
+    echo "D"
+else
+    echo "F"
+fi
+```
+
+### Condition is a Command
+
+```bash
+#!/usr/bin/env bash
+
+# Any command can be a condition (based on exit status)
+if grep -q "pattern" file.txt; then
+    echo "Pattern found"
+fi
+
+# Command success/failure
+if mkdir new_directory 2>/dev/null; then
+    echo "Directory created"
+else
+    echo "Could not create directory"
+fi
+
+# Check if command exists
+if command -v docker &>/dev/null; then
+    echo "Docker is installed"
+else
+    echo "Docker is not installed"
+fi
+
+# Negation with !
+if ! [[ -f "file.txt" ]]; then
+    echo "File does not exist"
+fi
+
+# Combining with && and ||
+if [[ -f "config.txt" ]] && [[ -r "config.txt" ]]; then
+    echo "Config file exists and is readable"
+fi
+```
+
+### Short-circuit Evaluation
+
+```bash
+#!/usr/bin/env bash
+
+# && = AND (run second only if first succeeds)
+[[ -d "/tmp" ]] && echo "/tmp exists"
+
+# || = OR (run second only if first fails)
+[[ -d "/nonexistent" ]] || echo "Directory missing"
+
+# Common pattern: success or failure message
+command && echo "Success" || echo "Failed"
+
+# Caution: This is NOT the same as if/else!
+# If 'echo "Success"' fails, 'echo "Failed"' still runs
+false && echo "Never prints" || echo "This prints"
+true && false || echo "This also prints"  # Because middle command failed
+```
+
+---
+
+## 4.2 Test Expressions ([ ], [[ ]], (( )))
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    THREE TYPES OF TESTS                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   [ condition ]        POSIX test (old, portable)                       │
+│   [[ condition ]]      Bash extended test (recommended)                 │
+│   (( expression ))     Arithmetic evaluation                            │
+│                                                                         │
+│   ┌────────────────────────────────────────────────────────────────┐    │
+│   │ Feature            │ [ ]        │ [[ ]]      │ (( ))          │    │
+│   ├────────────────────┼────────────┼────────────┼────────────────│    │
+│   │ Word splitting     │ Yes        │ No         │ N/A            │    │
+│   │ Pattern matching   │ No         │ Yes        │ N/A            │    │
+│   │ Regex matching     │ No         │ Yes (=~)   │ N/A            │    │
+│   │ Logical &&, ||     │ -a, -o     │ &&, ||     │ &&, ||         │    │
+│   │ Comparison         │ strings    │ strings    │ integers       │    │
+│   └────────────────────┴────────────┴────────────┴────────────────┘    │
+│                                                                         │
+│   RECOMMENDATION: Use [[ ]] for strings/files, (( )) for arithmetic    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### [[ ]] — Extended Test (Strings & Files)
+
+```bash
+#!/usr/bin/env bash
+
+# String comparisons
+name="Alice"
+
+[[ "$name" == "Alice" ]]     # Equal
+[[ "$name" != "Bob" ]]       # Not equal
+[[ "$name" < "Bob" ]]        # Less than (lexicographic)
+[[ "$name" > "Aaron" ]]      # Greater than
+[[ -z "$name" ]]             # Is empty/zero-length
+[[ -n "$name" ]]             # Is not empty
+
+# Pattern matching (glob patterns, NOT regex)
+[[ "$name" == A* ]]          # Starts with A
+[[ "$name" == *ice ]]        # Ends with ice
+[[ "$name" == [A-Z]* ]]      # Starts with uppercase
+
+# Regex matching (=~)
+email="user@example.com"
+if [[ "$email" =~ ^[a-zA-Z]+@[a-zA-Z]+\.[a-zA-Z]+$ ]]; then
+    echo "Valid email format"
+fi
+
+# Capture groups with regex
+version="v1.2.3"
+if [[ "$version" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "Major: ${BASH_REMATCH[1]}"  # 1
+    echo "Minor: ${BASH_REMATCH[2]}"  # 2
+    echo "Patch: ${BASH_REMATCH[3]}"  # 3
+fi
+
+# Logical operators
+[[ "$a" == "x" && "$b" == "y" ]]  # AND
+[[ "$a" == "x" || "$b" == "y" ]]  # OR
+[[ ! -f "file.txt" ]]             # NOT
+```
+
+### File Test Operators
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    FILE TEST OPERATORS                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Existence & Type                                                      │
+│   -e FILE    Exists (any type)                                          │
+│   -f FILE    Exists and is a regular file                               │
+│   -d FILE    Exists and is a directory                                  │
+│   -L FILE    Exists and is a symbolic link                              │
+│   -S FILE    Exists and is a socket                                     │
+│   -p FILE    Exists and is a named pipe                                 │
+│                                                                         │
+│   Permissions                                                           │
+│   -r FILE    Readable                                                   │
+│   -w FILE    Writable                                                   │
+│   -x FILE    Executable                                                 │
+│                                                                         │
+│   Size & Content                                                        │
+│   -s FILE    Exists and size > 0                                        │
+│                                                                         │
+│   Comparison                                                            │
+│   FILE1 -nt FILE2    FILE1 is newer than FILE2                          │
+│   FILE1 -ot FILE2    FILE1 is older than FILE2                          │
+│   FILE1 -ef FILE2    Same file (hard links)                             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+file="/etc/passwd"
+
+# Check file exists and is readable
+if [[ -f "$file" && -r "$file" ]]; then
+    echo "File exists and is readable"
+fi
+
+# Check directory exists
+if [[ -d "/var/log" ]]; then
+    echo "Log directory exists"
+fi
+
+# Check if file is empty
+if [[ ! -s "output.txt" ]]; then
+    echo "Output file is empty or doesn't exist"
+fi
+
+# Check file is newer
+if [[ "new.txt" -nt "old.txt" ]]; then
+    echo "new.txt was modified more recently"
+fi
+```
+
+### (( )) — Arithmetic Evaluation
+
+```bash
+#!/usr/bin/env bash
+
+# Arithmetic comparisons (no $ needed for variables inside)
+count=5
+
+if (( count > 3 )); then
+    echo "Count is greater than 3"
+fi
+
+if (( count >= 5 && count <= 10 )); then
+    echo "Count is between 5 and 10"
+fi
+
+# Arithmetic operators
+(( a == b ))   # Equal
+(( a != b ))   # Not equal
+(( a < b ))    # Less than
+(( a <= b ))   # Less than or equal
+(( a > b ))    # Greater than
+(( a >= b ))   # Greater than or equal
+
+# Complex expressions
+(( (a + b) * c > 100 ))
+(( a % 2 == 0 ))  # Even number check
+(( a & 1 ))       # Odd number check (bitwise AND)
+
+# Arithmetic assignment
+(( count++ ))     # Increment
+(( count-- ))     # Decrement
+(( total = a + b ))
+(( sum += 10 ))
+
+# Use in if
+if (( $(date +%H) < 12 )); then
+    echo "Good morning"
+fi
+```
+
+### [ ] vs [[ ]] — Why [[ ]] is Safer
+
+```bash
+#!/usr/bin/env bash
+
+# Problem with [ ]: Word splitting
+file="my file.txt"  # Has space
+
+# [ ] BREAKS - expands to: [ -f my file.txt ]
+if [ -f $file ]; then echo "exists"; fi  # Syntax error!
+
+# [ ] with quotes works
+if [ -f "$file" ]; then echo "exists"; fi  # OK
+
+# [[ ]] is safe even without quotes (but quote anyway for style)
+if [[ -f $file ]]; then echo "exists"; fi  # Works!
+if [[ -f "$file" ]]; then echo "exists"; fi  # Best practice
+
+# Problem with [ ]: < and > need escaping
+if [ "$a" \< "$b" ]; then echo "less"; fi   # Escaped
+if [[ "$a" < "$b" ]]; then echo "less"; fi  # Natural
+
+# Problem with [ ]: -a and -o instead of && and ||
+if [ "$a" = "x" -a "$b" = "y" ]; then echo "both"; fi  # Old style
+if [[ "$a" = "x" && "$b" = "y" ]]; then echo "both"; fi  # Modern
+```
+
+---
+
+## 4.3 Case Statements
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      CASE STATEMENT                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   case EXPRESSION in                                                    │
+│       pattern1)                                                         │
+│           commands                                                      │
+│           ;;                      ← Terminates this case                │
+│       pattern2 | pattern3)        ← Multiple patterns with |            │
+│           commands                                                      │
+│           ;;                                                            │
+│       *)                          ← Default case (like else)            │
+│           commands                                                      │
+│           ;;                                                            │
+│   esac                            ← Closes case (case spelled backward) │
+│                                                                         │
+│   Patterns are GLOB patterns (not regex):                               │
+│   *       Matches anything                                              │
+│   ?       Matches single character                                      │
+│   [abc]   Matches a, b, or c                                            │
+│   [a-z]   Matches range                                                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Case Statement
+
+```bash
+#!/usr/bin/env bash
+
+fruit="apple"
+
+case "$fruit" in
+    apple)
+        echo "Red or green fruit"
+        ;;
+    banana)
+        echo "Yellow fruit"
+        ;;
+    orange | lemon | lime)
+        echo "Citrus fruit"
+        ;;
+    *)
+        echo "Unknown fruit"
+        ;;
+esac
+```
+
+### Pattern Matching in Case
+
+```bash
+#!/usr/bin/env bash
+
+filename="report.pdf"
+
+case "$filename" in
+    *.txt)
+        echo "Text file"
+        ;;
+    *.pdf)
+        echo "PDF document"
+        ;;
+    *.jpg | *.jpeg | *.png | *.gif)
+        echo "Image file"
+        ;;
+    *.tar.gz | *.tgz)
+        echo "Compressed archive"
+        ;;
+    *.*)
+        echo "Unknown file type"
+        ;;
+    *)
+        echo "No extension"
+        ;;
+esac
+```
+
+### Case for Command Line Arguments
+
+```bash
+#!/usr/bin/env bash
+
+case "$1" in
+    start)
+        echo "Starting service..."
+        # start_service
+        ;;
+    stop)
+        echo "Stopping service..."
+        # stop_service
+        ;;
+    restart)
+        echo "Restarting service..."
+        # stop_service
+        # start_service
+        ;;
+    status)
+        echo "Checking status..."
+        # check_status
+        ;;
+    -h | --help)
+        echo "Usage: $0 {start|stop|restart|status}"
+        ;;
+    *)
+        echo "Unknown command: $1"
+        echo "Usage: $0 {start|stop|restart|status}"
+        exit 1
+        ;;
+esac
+```
+
+### Case Terminators (Bash 4+)
+
+```bash
+#!/usr/bin/env bash
+
+# Different terminators have different behaviors
+value="yes"
+
+case "$value" in
+    yes)
+        echo "Value is yes"
+        ;;          # Stop here (normal)
+esac
+
+# ;& = Fall through to next case (execute it too)
+case "$value" in
+    yes)
+        echo "Matched yes"
+        ;&          # Fall through
+    y)
+        echo "This also runs for 'yes'"
+        ;;
+esac
+
+# ;;& = Continue testing patterns
+case "$value" in
+    y*)
+        echo "Starts with y"
+        ;;&         # Continue testing
+    *es)
+        echo "Ends with es"
+        ;;&         # Continue testing
+    ???)
+        echo "Three characters"
+        ;;
+esac
+# Output for "yes": All three messages!
+```
+
+### Interactive Menu with Case
+
+```bash
+#!/usr/bin/env bash
+
+show_menu() {
+    echo "=== Main Menu ==="
+    echo "1) List files"
+    echo "2) Show date"
+    echo "3) Show disk usage"
+    echo "q) Quit"
+    echo ""
+    read -p "Choose option: " choice
+}
+
+while true; do
+    show_menu
+    case "$choice" in
+        1)
+            ls -la
+            ;;
+        2)
+            date
+            ;;
+        3)
+            df -h
+            ;;
+        q | Q)
+            echo "Goodbye!"
+            exit 0
+            ;;
+        *)
+            echo "Invalid option"
+            ;;
+    esac
+    echo ""
+    read -p "Press Enter to continue..."
+done
+```
+
+---
+
+## 4.4 Loops (for, while, until)
+
+### For Loop
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      FOR LOOP VARIANTS                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   List form:                                                            │
+│   for VAR in item1 item2 item3; do                                      │
+│       commands                                                          │
+│   done                                                                  │
+│                                                                         │
+│   Range form (Bash):                                                    │
+│   for VAR in {start..end}; do                                           │
+│   for VAR in {start..end..step}; do                                     │
+│                                                                         │
+│   C-style form:                                                         │
+│   for ((init; condition; increment)); do                                │
+│       commands                                                          │
+│   done                                                                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Loop over list of items
+for fruit in apple banana cherry; do
+    echo "I like $fruit"
+done
+
+# Loop over array
+colors=("red" "green" "blue")
+for color in "${colors[@]}"; do
+    echo "Color: $color"
+done
+
+# Loop over files (globbing)
+for file in *.txt; do
+    echo "Processing: $file"
+done
+
+# Loop with brace expansion
+for i in {1..5}; do
+    echo "Number: $i"
+done
+
+# Range with step
+for i in {0..10..2}; do  # 0, 2, 4, 6, 8, 10
+    echo "$i"
+done
+
+# C-style for loop
+for ((i = 0; i < 5; i++)); do
+    echo "Index: $i"
+done
+
+# Loop over command output
+for user in $(cat /etc/passwd | cut -d: -f1 | head -5); do
+    echo "User: $user"
+done
+
+# BETTER: Loop over command output with while read
+while IFS= read -r user; do
+    echo "User: $user"
+done < <(cut -d: -f1 /etc/passwd | head -5)
+```
+
+### While Loop
+
+```bash
+#!/usr/bin/env bash
+
+# Basic while loop
+count=1
+while [[ $count -le 5 ]]; do
+    echo "Count: $count"
+    ((count++))
+done
+
+# While with arithmetic
+i=0
+while ((i < 5)); do
+    echo "i = $i"
+    ((i++))
+done
+
+# Infinite loop with break
+while true; do
+    read -p "Enter 'quit' to exit: " input
+    if [[ "$input" == "quit" ]]; then
+        break
+    fi
+    echo "You entered: $input"
+done
+
+# Read file line by line (best practice)
+while IFS= read -r line; do
+    echo "Line: $line"
+done < file.txt
+
+# While with condition command
+while ping -c 1 google.com &>/dev/null; do
+    echo "Network is up at $(date)"
+    sleep 60
+done
+echo "Network is down!"
+```
+
+### Until Loop
+
+```bash
+#!/usr/bin/env bash
+
+# Until = while NOT condition
+# Runs UNTIL condition becomes true
+
+count=1
+until [[ $count -gt 5 ]]; do
+    echo "Count: $count"
+    ((count++))
+done
+
+# Wait for file to exist
+until [[ -f "/tmp/signal.txt" ]]; do
+    echo "Waiting for signal file..."
+    sleep 1
+done
+echo "Signal received!"
+
+# Wait for service to start
+until curl -s http://localhost:8080/health &>/dev/null; do
+    echo "Waiting for service..."
+    sleep 2
+done
+echo "Service is up!"
+```
+
+### Loop Over Files Safely
+
+```bash
+#!/usr/bin/env bash
+
+# WRONG: Breaks on filenames with spaces
+for file in $(ls *.txt); do
+    echo "$file"
+done
+
+# CORRECT: Use glob directly
+for file in *.txt; do
+    # Handle case where no files match
+    [[ -e "$file" ]] || continue
+    echo "$file"
+done
+
+# BETTER: Use nullglob option
+shopt -s nullglob  # Empty glob returns nothing (not literal)
+for file in *.txt; do
+    echo "$file"
+done
+shopt -u nullglob  # Reset
+
+# For files with newlines in names, use find with -print0
+while IFS= read -r -d '' file; do
+    echo "Processing: $file"
+done < <(find . -name "*.txt" -print0)
+```
+
+---
+
+## 4.5 Loop Control (break, continue)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      LOOP CONTROL                                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   break [n]       Exit n levels of loops (default: 1)                   │
+│   continue [n]    Skip to next iteration, n levels up                   │
+│                                                                         │
+│   ┌─────────────────────────────────────────────┐                       │
+│   │  for i in 1 2 3; do                         │                       │
+│   │      for j in a b c; do                     │                       │
+│   │          if [[ "$j" == "b" ]]; then         │                       │
+│   │              break 2   # Exit BOTH loops    │                       │
+│   │          fi                                 │                       │
+│   │      done                                   │                       │
+│   │  done                                       │                       │
+│   └─────────────────────────────────────────────┘                       │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### break Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Simple break
+for i in {1..10}; do
+    if [[ $i -eq 5 ]]; then
+        echo "Found 5, breaking"
+        break
+    fi
+    echo "$i"
+done
+echo "Done"
+# Output: 1 2 3 4 Found 5, breaking Done
+
+# Search for item
+found=false
+for dir in /usr /var /opt /home; do
+    if [[ -f "$dir/target.txt" ]]; then
+        echo "Found in: $dir"
+        found=true
+        break
+    fi
+done
+$found || echo "Not found anywhere"
+
+# Break from nested loops
+for i in {1..3}; do
+    for j in {1..3}; do
+        echo "i=$i, j=$j"
+        if [[ $i -eq 2 && $j -eq 2 ]]; then
+            echo "Breaking out of both loops"
+            break 2  # Break 2 levels
+        fi
+    done
+done
+echo "Outside all loops"
+```
+
+### continue Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Skip specific items
+for i in {1..5}; do
+    if [[ $i -eq 3 ]]; then
+        continue  # Skip 3
+    fi
+    echo "$i"
+done
+# Output: 1 2 4 5
+
+# Skip files that don't match criteria
+for file in *.log; do
+    [[ -e "$file" ]] || continue  # Skip if no match
+
+    # Skip empty files
+    if [[ ! -s "$file" ]]; then
+        echo "Skipping empty file: $file"
+        continue
+    fi
+
+    echo "Processing: $file"
+done
+
+# Continue in nested loops
+for i in {1..3}; do
+    for j in {1..3}; do
+        if [[ $j -eq 2 ]]; then
+            continue 2  # Skip to next i (not next j)
+        fi
+        echo "i=$i, j=$j"
+    done
+done
+```
+
+### Practical Patterns
+
+```bash
+#!/usr/bin/env bash
+
+# Process with retry limit
+max_attempts=3
+attempt=1
+
+while [[ $attempt -le $max_attempts ]]; do
+    echo "Attempt $attempt..."
+
+    if some_command; then
+        echo "Success!"
+        break
+    fi
+
+    ((attempt++))
+
+    if [[ $attempt -le $max_attempts ]]; then
+        echo "Retrying in 5 seconds..."
+        sleep 5
+    fi
+done
+
+if [[ $attempt -gt $max_attempts ]]; then
+    echo "Failed after $max_attempts attempts"
+    exit 1
+fi
+
+# Process files with error handling
+errors=0
+for file in data/*.csv; do
+    [[ -e "$file" ]] || continue
+
+    if ! process_csv "$file"; then
+        echo "Error processing: $file"
+        ((errors++))
+        continue  # Continue to next file despite error
+    fi
+
+    echo "Processed: $file"
+done
+
+echo "Completed with $errors errors"
+
+# Interactive loop with menu
+while true; do
+    echo "1) Option A"
+    echo "2) Option B"
+    echo "3) Quit"
+    read -p "Choice: " choice
+
+    case "$choice" in
+        1) echo "Running A..."; continue ;;
+        2) echo "Running B..."; continue ;;
+        3) echo "Goodbye!"; break ;;
+        *) echo "Invalid"; continue ;;
+    esac
+done
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: File Type Checker
+Write a script that takes a filename as argument and uses case to report the type:
+- `.sh` → "Shell script"
+- `.py` → "Python script"
+- `.js` → "JavaScript file"
+- `.txt` → "Text file"
+- Other → "Unknown type"
+
+### Exercise 2: Number Guessing Game
+Create a guessing game where:
+1. Script picks a random number 1-100
+2. User has unlimited guesses
+3. Give "higher" or "lower" hints
+4. Count and display total guesses
+
+```bash
+# Hint: Random number
+target=$((RANDOM % 100 + 1))
+```
+
+### Exercise 3: Batch File Renamer
+Write a script that:
+1. Takes a directory as argument
+2. Loops through all `.txt` files
+3. Renames each to lowercase
+4. Reports success/skip for each
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   CONTROL FLOW CHEAT SHEET                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  CONDITIONALS                                                           │
+│  if [[ cond ]]; then ... fi           basic if                          │
+│  if [[ cond ]]; then ... else ... fi  if-else                           │
+│  if cmd; then ... fi                  command as condition              │
+│  [[ ]] && cmd                         short-circuit AND                 │
+│  [[ ]] || cmd                         short-circuit OR                  │
+│                                                                         │
+│  TEST OPERATORS                                                         │
+│  [[ -f file ]]   file exists          [[ -d dir ]]   dir exists         │
+│  [[ -r file ]]   readable             [[ -w file ]]  writable           │
+│  [[ -z "$s" ]]   empty string         [[ -n "$s" ]]  not empty          │
+│  [[ $a == $b ]]  string equal         [[ $a != $b ]] not equal          │
+│  [[ $a =~ rx ]]  regex match          [[ $a == p* ]] glob pattern       │
+│  (( a > b ))     numeric compare      (( a == b ))   numeric equal      │
+│                                                                         │
+│  CASE                                                                   │
+│  case "$var" in                       pattern)  ... ;;                  │
+│      pat1) ... ;;                     p1|p2)    ... ;;  (multiple)      │
+│      *)    ... ;;  (default)          esac                              │
+│                                                                         │
+│  LOOPS                                                                  │
+│  for x in a b c; do ... done          list iteration                    │
+│  for x in {1..10}; do ... done        range iteration                   │
+│  for ((i=0; i<n; i++)); do ... done   C-style for                       │
+│  while [[ cond ]]; do ... done        while true                        │
+│  until [[ cond ]]; do ... done        until true                        │
+│  while IFS= read -r line; do ... done < file   read file lines          │
+│                                                                         │
+│  LOOP CONTROL                                                           │
+│  break           exit loop            break 2        exit 2 levels      │
+│  continue        next iteration       continue 2     next, 2 levels up  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```

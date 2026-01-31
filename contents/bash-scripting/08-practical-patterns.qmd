@@ -1,0 +1,1287 @@
+---
+title: "Module 8: PRACTICAL PATTERNS"
+---
+
+## 8.1 Argument Parsing (getopts)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ARGUMENT PARSING                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Two main approaches:                                                  │
+│                                                                         │
+│   1. getopts (built-in)                                                 │
+│      ├── Short options only (-a, -b value)                              │
+│      ├── POSIX-compliant                                                │
+│      └── Recommended for simple scripts                                 │
+│                                                                         │
+│   2. Manual parsing                                                     │
+│      ├── Long options (--verbose, --output=file)                        │
+│      ├── More flexible                                                  │
+│      └── Recommended for complex CLIs                                   │
+│                                                                         │
+│   3. External tools (getopt, argparse.bash)                             │
+│      ├── Full-featured                                                  │
+│      └── May not be portable                                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### getopts Basics
+
+```bash
+#!/usr/bin/env bash
+
+# getopts optstring name
+# - optstring: valid options (: after option means it takes argument)
+# - name: variable to store current option
+
+usage() {
+    cat << EOF
+Usage: $(basename "$0") [options] file...
+
+Options:
+    -h          Show this help
+    -v          Verbose output
+    -o FILE     Output file
+    -n COUNT    Number of iterations
+EOF
+    exit 1
+}
+
+# Defaults
+verbose=false
+output_file=""
+count=1
+
+# Parse options
+while getopts ":hvo:n:" opt; do
+    case $opt in
+        h)
+            usage
+            ;;
+        v)
+            verbose=true
+            ;;
+        o)
+            output_file="$OPTARG"
+            ;;
+        n)
+            count="$OPTARG"
+            ;;
+        :)
+            echo "Error: -$OPTARG requires an argument" >&2
+            usage
+            ;;
+        \?)
+            echo "Error: Invalid option -$OPTARG" >&2
+            usage
+            ;;
+    esac
+done
+
+# Remove parsed options, leaving positional arguments
+shift $((OPTIND - 1))
+
+# Now $@ contains remaining arguments (files)
+echo "Verbose: $verbose"
+echo "Output: $output_file"
+echo "Count: $count"
+echo "Files: $@"
+```
+
+### getopts Details
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    getopts OPTSTRING                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   "hvo:n:"                                                              │
+│    ││││ │                                                               │
+│    │││└─┴── n: requires argument                                        │
+│    ││└───── o: requires argument                                        │
+│    │└────── v  no argument (flag)                                       │
+│    └─────── h  no argument (flag)                                       │
+│                                                                         │
+│   Leading : = silent error handling                                     │
+│   ":hvo:n:" = handle errors ourselves (recommended)                     │
+│                                                                         │
+│   Variables:                                                            │
+│   $opt      Current option character                                    │
+│   $OPTARG   Option's argument (if any)                                  │
+│   $OPTIND   Index of next argument to process                           │
+│                                                                         │
+│   Special cases:                                                        │
+│   opt=':'   Missing required argument                                   │
+│   opt='?'   Unknown option                                              │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Long Options (Manual Parsing)
+
+```bash
+#!/usr/bin/env bash
+
+usage() {
+    cat << EOF
+Usage: $(basename "$0") [options] file...
+
+Options:
+    -h, --help              Show this help
+    -v, --verbose           Verbose output
+    -o, --output FILE       Output file
+    -n, --number COUNT      Number of iterations
+    --dry-run               Don't actually do anything
+EOF
+    exit 1
+}
+
+# Defaults
+verbose=false
+output_file=""
+count=1
+dry_run=false
+files=()
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -h|--help)
+            usage
+            ;;
+        -v|--verbose)
+            verbose=true
+            shift
+            ;;
+        -o|--output)
+            output_file="$2"
+            shift 2
+            ;;
+        --output=*)
+            output_file="${1#*=}"
+            shift
+            ;;
+        -n|--number)
+            count="$2"
+            shift 2
+            ;;
+        --number=*)
+            count="${1#*=}"
+            shift
+            ;;
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        --)
+            shift
+            files+=("$@")
+            break
+            ;;
+        -*)
+            echo "Error: Unknown option $1" >&2
+            usage
+            ;;
+        *)
+            files+=("$1")
+            shift
+            ;;
+    esac
+done
+
+echo "Verbose: $verbose"
+echo "Output: $output_file"
+echo "Count: $count"
+echo "Dry run: $dry_run"
+echo "Files: ${files[*]}"
+```
+
+### Validating Arguments
+
+```bash
+#!/usr/bin/env bash
+
+die() { echo "Error: $1" >&2; exit 1; }
+
+# After parsing, validate
+validate_args() {
+    # Required arguments
+    [[ -n "$output_file" ]] || die "Output file is required (-o)"
+
+    # Numeric validation
+    [[ "$count" =~ ^[0-9]+$ ]] || die "Count must be a positive integer"
+    ((count > 0)) || die "Count must be greater than 0"
+
+    # File existence
+    if [[ -n "$input_file" && ! -f "$input_file" ]]; then
+        die "Input file not found: $input_file"
+    fi
+
+    # Directory existence
+    if [[ -n "$output_dir" && ! -d "$output_dir" ]]; then
+        die "Output directory not found: $output_dir"
+    fi
+
+    # Writable check
+    if [[ -n "$output_file" && -e "$output_file" && ! -w "$output_file" ]]; then
+        die "Cannot write to: $output_file"
+    fi
+
+    # At least one file required
+    if [[ ${#files[@]} -eq 0 ]]; then
+        die "At least one file is required"
+    fi
+}
+
+validate_args
+```
+
+---
+
+## 8.2 Error Handling & Exit Codes
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    EXIT CODES CONVENTION                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   0       Success                                                       │
+│   1       General errors                                                │
+│   2       Misuse of shell command / invalid arguments                   │
+│   126     Command not executable                                        │
+│   127     Command not found                                             │
+│   128     Invalid exit argument                                         │
+│   128+n   Fatal error signal "n"                                        │
+│   130     Script terminated by Ctrl+C (128+2)                           │
+│   255     Exit status out of range                                      │
+│                                                                         │
+│   Custom conventions (common):                                          │
+│   0       Success                                                       │
+│   1       General error                                                 │
+│   2       Usage error (wrong arguments)                                 │
+│   3       Configuration error                                           │
+│   4       Resource not found                                            │
+│   5       Permission denied                                             │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Error Handling
+
+```bash
+#!/usr/bin/env bash
+
+# Exit immediately on error
+set -e
+
+# Exit on undefined variable
+set -u
+
+# Catch errors in pipes
+set -o pipefail
+
+# Combined (most common at script start)
+set -euo pipefail
+
+# Example: This script will exit on any error
+mkdir /some/directory
+echo "This won't run if mkdir fails"
+```
+
+### Error Handling Functions
+
+```bash
+#!/usr/bin/env bash
+
+# Exit codes
+readonly E_SUCCESS=0
+readonly E_ERROR=1
+readonly E_USAGE=2
+readonly E_CONFIG=3
+readonly E_NOT_FOUND=4
+readonly E_PERMISSION=5
+
+# Color output (if terminal)
+if [[ -t 1 ]]; then
+    RED='\033[0;31m'
+    YELLOW='\033[0;33m'
+    GREEN='\033[0;32m'
+    NC='\033[0m'  # No color
+else
+    RED='' YELLOW='' GREEN='' NC=''
+fi
+
+# Error functions
+die() {
+    echo -e "${RED}ERROR: $1${NC}" >&2
+    exit "${2:-$E_ERROR}"
+}
+
+warn() {
+    echo -e "${YELLOW}WARNING: $1${NC}" >&2
+}
+
+info() {
+    echo -e "${GREEN}INFO: $1${NC}"
+}
+
+# Usage
+[[ -f "config.txt" ]] || die "Config file not found" $E_NOT_FOUND
+[[ -r "config.txt" ]] || die "Cannot read config file" $E_PERMISSION
+
+warn "Using default settings"
+info "Starting process"
+```
+
+### try/catch Pattern
+
+```bash
+#!/usr/bin/env bash
+
+# Bash doesn't have try/catch, but we can simulate it
+
+# Method 1: Using || for error handling
+command_that_might_fail || {
+    echo "Command failed, handling error..."
+    # error handling code
+}
+
+# Method 2: Trap-based error handling
+set -e
+
+on_error() {
+    local exit_code=$?
+    local line_number=$1
+    echo "Error on line $line_number: exit code $exit_code" >&2
+    # Cleanup code here
+    exit $exit_code
+}
+
+trap 'on_error $LINENO' ERR
+
+# Method 3: Subshell for isolated try/catch
+try() {
+    [[ $- = *e* ]]; SAVED_OPT_E=$?
+    set +e
+}
+
+catch() {
+    export EX_CODE=$?
+    (( $SAVED_OPT_E )) && set +e
+    return $EX_CODE
+}
+
+# Usage
+try
+(
+    # Commands that might fail
+    risky_command
+    another_command
+)
+catch && {
+    echo "Error caught: $EX_CODE"
+}
+```
+
+### Comprehensive Error Handling Template
+
+```bash
+#!/usr/bin/env bash
+#
+# Script: example.sh
+# Description: Template with comprehensive error handling
+#
+
+set -euo pipefail
+
+# Script info
+readonly SCRIPT_NAME=$(basename "$0")
+readonly SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# Exit codes
+readonly E_SUCCESS=0
+readonly E_ERROR=1
+readonly E_USAGE=2
+
+# Error handling
+error_exit() {
+    echo "ERROR: $1" >&2
+    exit "${2:-$E_ERROR}"
+}
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+
+    # Remove temp files
+    [[ -n "${TEMP_DIR:-}" && -d "$TEMP_DIR" ]] && rm -rf "$TEMP_DIR"
+
+    # Restore state if needed
+    # ...
+
+    exit $exit_code
+}
+
+# Register cleanup
+trap cleanup EXIT
+trap 'error_exit "Interrupted" 130' INT TERM
+
+# Create temp directory
+TEMP_DIR=$(mktemp -d)
+
+# Main script logic
+main() {
+    # Your code here
+
+    # Check required commands
+    command -v jq &>/dev/null || error_exit "jq is required" $E_ERROR
+
+    # Validate inputs
+    [[ $# -ge 1 ]] || error_exit "Usage: $SCRIPT_NAME <input>" $E_USAGE
+
+    # Process
+    echo "Processing: $1"
+}
+
+main "$@"
+```
+
+---
+
+## 8.3 Signal Trapping (trap)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    COMMON SIGNALS                                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Signal    Number   Description                                        │
+│   ───────────────────────────────────────────────────────────────────   │
+│   SIGHUP    1        Terminal hangup                                    │
+│   SIGINT    2        Interrupt (Ctrl+C)                                 │
+│   SIGQUIT   3        Quit (Ctrl+\)                                      │
+│   SIGTERM   15       Terminate (default kill)                           │
+│   SIGKILL   9        Kill (cannot be caught)                            │
+│                                                                         │
+│   Pseudo-signals (bash-specific):                                       │
+│   EXIT      -        Script exit (any reason)                           │
+│   ERR       -        Command returns non-zero                           │
+│   DEBUG     -        Before each command                                │
+│   RETURN    -        Return from function/source                        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic trap Usage
+
+```bash
+#!/usr/bin/env bash
+
+# trap 'commands' SIGNALS
+
+# Cleanup on exit
+cleanup() {
+    echo "Cleaning up..."
+    rm -f /tmp/myapp_*.tmp
+}
+trap cleanup EXIT
+
+# Handle Ctrl+C
+trap 'echo "Interrupted!"; exit 130' INT
+
+# Ignore a signal
+trap '' TERM   # Ignore SIGTERM
+
+# Reset to default
+trap - INT     # Reset SIGINT to default
+
+# Show current traps
+trap -p
+```
+
+### Cleanup Pattern
+
+```bash
+#!/usr/bin/env bash
+
+# Global state
+TEMP_FILE=""
+LOCK_FILE=""
+ORIGINAL_DIR=""
+
+cleanup() {
+    local exit_code=$?
+    echo "Cleaning up..." >&2
+
+    # Remove temp files
+    [[ -n "$TEMP_FILE" && -f "$TEMP_FILE" ]] && rm -f "$TEMP_FILE"
+
+    # Release lock
+    [[ -n "$LOCK_FILE" && -f "$LOCK_FILE" ]] && rm -f "$LOCK_FILE"
+
+    # Restore directory
+    [[ -n "$ORIGINAL_DIR" ]] && cd "$ORIGINAL_DIR"
+
+    exit $exit_code
+}
+
+trap cleanup EXIT
+
+# Create resources
+ORIGINAL_DIR=$(pwd)
+TEMP_FILE=$(mktemp)
+LOCK_FILE="/tmp/myapp.lock"
+
+# Check lock
+if [[ -f "$LOCK_FILE" ]]; then
+    echo "Already running" >&2
+    exit 1
+fi
+touch "$LOCK_FILE"
+
+# Main script - cleanup runs automatically on exit
+echo "Working..."
+cd /tmp
+echo "data" > "$TEMP_FILE"
+
+# Even if we exit early or crash, cleanup runs
+```
+
+### Interactive Interrupt Handling
+
+```bash
+#!/usr/bin/env bash
+
+interrupt_count=0
+last_interrupt=0
+
+handle_interrupt() {
+    current_time=$(date +%s)
+
+    if (( current_time - last_interrupt < 2 )); then
+        ((interrupt_count++))
+    else
+        interrupt_count=1
+    fi
+
+    last_interrupt=$current_time
+
+    if (( interrupt_count >= 2 )); then
+        echo -e "\nForce quit!"
+        exit 130
+    else
+        echo -e "\nPress Ctrl+C again within 2 seconds to quit"
+    fi
+}
+
+trap handle_interrupt INT
+
+echo "Running... Press Ctrl+C twice to exit"
+while true; do
+    sleep 1
+    echo -n "."
+done
+```
+
+### Advanced trap Patterns
+
+```bash
+#!/usr/bin/env bash
+
+# Stack-based cleanup
+declare -a CLEANUP_COMMANDS=()
+
+add_cleanup() {
+    CLEANUP_COMMANDS+=("$1")
+}
+
+run_cleanup() {
+    for ((i=${#CLEANUP_COMMANDS[@]}-1; i>=0; i--)); do
+        eval "${CLEANUP_COMMANDS[i]}"
+    done
+}
+
+trap run_cleanup EXIT
+
+# Usage - cleanup in reverse order
+add_cleanup "echo 'Cleanup 1'"
+add_cleanup "echo 'Cleanup 2'"
+add_cleanup "rm -f /tmp/file1"
+add_cleanup "rm -f /tmp/file2"
+
+# Error line reporting
+trap 'echo "Error on line $LINENO: $BASH_COMMAND"' ERR
+
+# Debug tracing
+trap 'echo "+ $BASH_COMMAND"' DEBUG  # Like set -x but controllable
+```
+
+---
+
+## 8.4 Debugging Techniques
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    DEBUGGING OPTIONS                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   set -x (xtrace)                                                       │
+│   ├── Print each command before execution                               │
+│   └── Shows expanded variables                                          │
+│                                                                         │
+│   set -v (verbose)                                                      │
+│   ├── Print each line as read                                           │
+│   └── Shows before expansion                                            │
+│                                                                         │
+│   set -e (errexit)                                                      │
+│   ├── Exit on first error                                               │
+│   └── Be careful with conditionals                                      │
+│                                                                         │
+│   set -u (nounset)                                                      │
+│   ├── Error on undefined variables                                      │
+│   └── Catches typos                                                     │
+│                                                                         │
+│   set -o pipefail                                                       │
+│   ├── Pipeline fails if any command fails                               │
+│   └── Not just last command                                             │
+│                                                                         │
+│   Combine: set -euxo pipefail (maximum strictness)                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Using set -x
+
+```bash
+#!/usr/bin/env bash
+
+# Enable at start
+set -x
+echo "This will show the command"
+name="Alice"
+echo "Hello, $name"
+set +x  # Disable
+
+# Output:
+# + echo 'This will show the command'
+# This will show the command
+# + name=Alice
+# + echo 'Hello, Alice'
+# Hello, Alice
+
+# Enable for specific section only
+debug_section() {
+    set -x
+    # commands to debug
+    local result=$((1 + 2))
+    echo "$result"
+    set +x
+}
+```
+
+### Conditional Debugging
+
+```bash
+#!/usr/bin/env bash
+
+# Debug mode via environment variable
+if [[ "${DEBUG:-}" == "1" ]]; then
+    set -x
+fi
+
+# Or via command line
+# DEBUG=1 ./script.sh
+
+# Debug function
+debug() {
+    [[ "${DEBUG:-}" == "1" ]] && echo "DEBUG: $*" >&2
+}
+
+debug "Variable x = $x"
+debug "Entering function foo"
+
+# Selective tracing
+trace_on() { set -x; }
+trace_off() { set +x; }
+
+trace_on
+complex_operation
+trace_off
+```
+
+### Logging for Debugging
+
+```bash
+#!/usr/bin/env bash
+
+# Log levels
+LOG_LEVEL="${LOG_LEVEL:-INFO}"
+
+declare -A LOG_LEVELS=([DEBUG]=0 [INFO]=1 [WARN]=2 [ERROR]=3)
+
+log() {
+    local level="$1"
+    shift
+    local message="$*"
+
+    local level_num="${LOG_LEVELS[$level]:-1}"
+    local current_level_num="${LOG_LEVELS[$LOG_LEVEL]:-1}"
+
+    if (( level_num >= current_level_num )); then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >&2
+    fi
+}
+
+log_debug() { log DEBUG "$@"; }
+log_info() { log INFO "$@"; }
+log_warn() { log WARN "$@"; }
+log_error() { log ERROR "$@"; }
+
+# Usage
+LOG_LEVEL=DEBUG
+
+log_debug "Starting function"
+log_info "Processing file: $file"
+log_warn "File is large, may take time"
+log_error "Failed to process"
+```
+
+### Common Debugging Patterns
+
+```bash
+#!/usr/bin/env bash
+
+# Print variable values
+debug_vars() {
+    for var in "$@"; do
+        echo "$var = ${!var}" >&2
+    done
+}
+
+name="Alice"
+count=42
+debug_vars name count
+
+# Show function call stack
+show_stack() {
+    local i
+    echo "Call stack:" >&2
+    for ((i=1; i<${#FUNCNAME[@]}; i++)); do
+        echo "  $i: ${FUNCNAME[$i]}() at ${BASH_SOURCE[$i]}:${BASH_LINENO[$((i-1))]}" >&2
+    done
+}
+
+# Assert function
+assert() {
+    local condition="$1"
+    local message="${2:-Assertion failed}"
+
+    if ! eval "$condition"; then
+        echo "ASSERT FAILED: $message" >&2
+        echo "Condition: $condition" >&2
+        show_stack
+        exit 1
+    fi
+}
+
+assert '[[ -f "config.txt" ]]' "Config file must exist"
+assert '(( count > 0 ))' "Count must be positive"
+
+# Pause for debugging
+pause() {
+    read -rp "Press Enter to continue (or Ctrl+C to abort)..."
+}
+```
+
+### Bash Debugger (bashdb)
+
+```bash
+# Install bashdb (if available)
+# brew install bashdb  # macOS
+# apt install bashdb   # Debian/Ubuntu
+
+# Run with debugger
+bashdb script.sh
+
+# bashdb commands:
+# n         - next line
+# s         - step into function
+# c         - continue
+# b 10      - breakpoint at line 10
+# p $var    - print variable
+# l         - list source
+# q         - quit
+```
+
+---
+
+## 8.5 Script Templates & Best Practices
+
+### Minimal Script Template
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+main() {
+    echo "Hello, World!"
+}
+
+main "$@"
+```
+
+### Standard Script Template
+
+```bash
+#!/usr/bin/env bash
+#
+# Script: script-name.sh
+# Description: Brief description of what this script does
+# Author: Your Name
+# Date: 2024-01-01
+#
+
+set -euo pipefail
+
+# Constants
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_NAME="$(basename "$0")"
+
+# Defaults
+VERBOSE=false
+
+# Functions
+usage() {
+    cat << EOF
+Usage: $SCRIPT_NAME [options] <argument>
+
+Description:
+    Brief description of what the script does.
+
+Options:
+    -h, --help      Show this help message
+    -v, --verbose   Enable verbose output
+
+Arguments:
+    argument        Description of the required argument
+
+Examples:
+    $SCRIPT_NAME file.txt
+    $SCRIPT_NAME -v /path/to/file
+EOF
+    exit "${1:-0}"
+}
+
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
+
+verbose() {
+    $VERBOSE && log "$@"
+}
+
+die() {
+    echo "ERROR: $1" >&2
+    exit "${2:-1}"
+}
+
+# Parse arguments
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                usage 0
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                die "Unknown option: $1"
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    # Store remaining arguments
+    ARGS=("$@")
+}
+
+# Main logic
+main() {
+    parse_args "$@"
+
+    # Validate
+    [[ ${#ARGS[@]} -ge 1 ]] || usage 1
+
+    local input_file="${ARGS[0]}"
+    [[ -f "$input_file" ]] || die "File not found: $input_file"
+
+    # Do work
+    verbose "Processing: $input_file"
+    log "Starting..."
+
+    # Your code here
+
+    log "Done!"
+}
+
+main "$@"
+```
+
+### Production Script Template
+
+```bash
+#!/usr/bin/env bash
+#
+# Script: production-script.sh
+# Description: Full-featured production-ready script template
+# Author: Your Name
+# Version: 1.0.0
+#
+
+set -euo pipefail
+IFS=$'\n\t'
+
+# =============================================================================
+# CONSTANTS
+# =============================================================================
+
+readonly VERSION="1.0.0"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_NAME="$(basename "$0")"
+readonly LOG_FILE="${LOG_FILE:-/tmp/${SCRIPT_NAME%.sh}.log}"
+
+# Exit codes
+readonly E_SUCCESS=0
+readonly E_ERROR=1
+readonly E_USAGE=2
+readonly E_CONFIG=3
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
+# Defaults (can be overridden by environment or arguments)
+: "${VERBOSE:=false}"
+: "${DRY_RUN:=false}"
+: "${CONFIG_FILE:=}"
+
+# =============================================================================
+# LOGGING
+# =============================================================================
+
+# Colors (if terminal)
+if [[ -t 1 ]]; then
+    readonly RED='\033[0;31m'
+    readonly YELLOW='\033[0;33m'
+    readonly GREEN='\033[0;32m'
+    readonly BLUE='\033[0;34m'
+    readonly NC='\033[0m'
+else
+    readonly RED='' YELLOW='' GREEN='' BLUE='' NC=''
+fi
+
+log() {
+    local level="$1"; shift
+    local message="$*"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    case "$level" in
+        DEBUG) $VERBOSE && echo -e "${BLUE}[$timestamp] [DEBUG] $message${NC}" ;;
+        INFO)  echo -e "${GREEN}[$timestamp] [INFO] $message${NC}" ;;
+        WARN)  echo -e "${YELLOW}[$timestamp] [WARN] $message${NC}" >&2 ;;
+        ERROR) echo -e "${RED}[$timestamp] [ERROR] $message${NC}" >&2 ;;
+    esac
+
+    # Also log to file
+    echo "[$timestamp] [$level] $message" >> "$LOG_FILE"
+}
+
+debug() { log DEBUG "$@"; }
+info() { log INFO "$@"; }
+warn() { log WARN "$@"; }
+error() { log ERROR "$@"; }
+
+die() {
+    error "$1"
+    exit "${2:-$E_ERROR}"
+}
+
+# =============================================================================
+# CLEANUP & SIGNAL HANDLING
+# =============================================================================
+
+TEMP_DIR=""
+
+cleanup() {
+    local exit_code=$?
+    debug "Cleanup started (exit code: $exit_code)"
+
+    # Remove temp directory
+    if [[ -n "$TEMP_DIR" && -d "$TEMP_DIR" ]]; then
+        rm -rf "$TEMP_DIR"
+        debug "Removed temp directory: $TEMP_DIR"
+    fi
+
+    debug "Cleanup complete"
+    exit $exit_code
+}
+
+trap cleanup EXIT
+trap 'die "Interrupted" 130' INT TERM
+
+# =============================================================================
+# HELPER FUNCTIONS
+# =============================================================================
+
+require_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &>/dev/null; then
+        die "Required command not found: $cmd"
+    fi
+}
+
+confirm() {
+    local prompt="${1:-Continue?}"
+    local default="${2:-n}"
+
+    local yn
+    if [[ "$default" == "y" ]]; then
+        read -rp "$prompt [Y/n] " yn
+        yn="${yn:-y}"
+    else
+        read -rp "$prompt [y/N] " yn
+        yn="${yn:-n}"
+    fi
+
+    [[ "$yn" =~ ^[Yy] ]]
+}
+
+run() {
+    if $DRY_RUN; then
+        info "[DRY RUN] $*"
+    else
+        debug "Running: $*"
+        "$@"
+    fi
+}
+
+# =============================================================================
+# ARGUMENT PARSING
+# =============================================================================
+
+usage() {
+    cat << EOF
+$SCRIPT_NAME v$VERSION
+
+Usage: $SCRIPT_NAME [options] <command> [arguments]
+
+Commands:
+    run         Execute the main operation
+    status      Show current status
+    help        Show this help message
+
+Options:
+    -h, --help          Show this help message
+    -v, --verbose       Enable verbose output
+    -n, --dry-run       Show what would be done
+    -c, --config FILE   Configuration file
+
+Environment Variables:
+    VERBOSE             Set to 'true' for verbose output
+    DRY_RUN             Set to 'true' for dry run mode
+    CONFIG_FILE         Path to configuration file
+
+Examples:
+    $SCRIPT_NAME run
+    $SCRIPT_NAME -v --dry-run run
+    $SCRIPT_NAME -c /path/to/config.conf run
+EOF
+    exit "${1:-0}"
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                usage 0
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -n|--dry-run)
+                DRY_RUN=true
+                shift
+                ;;
+            -c|--config)
+                CONFIG_FILE="$2"
+                shift 2
+                ;;
+            --config=*)
+                CONFIG_FILE="${1#*=}"
+                shift
+                ;;
+            --)
+                shift
+                break
+                ;;
+            -*)
+                die "Unknown option: $1" $E_USAGE
+                ;;
+            *)
+                break
+                ;;
+        esac
+    done
+
+    COMMAND="${1:-}"
+    shift || true
+    ARGS=("$@")
+}
+
+# =============================================================================
+# COMMANDS
+# =============================================================================
+
+cmd_run() {
+    info "Executing main operation..."
+
+    # Create temp directory
+    TEMP_DIR=$(mktemp -d)
+    debug "Created temp directory: $TEMP_DIR"
+
+    # Your main logic here
+    run echo "Doing work..."
+
+    info "Operation complete"
+}
+
+cmd_status() {
+    info "Status: OK"
+}
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
+main() {
+    parse_args "$@"
+
+    # Load config if specified
+    if [[ -n "$CONFIG_FILE" ]]; then
+        [[ -f "$CONFIG_FILE" ]] || die "Config file not found: $CONFIG_FILE" $E_CONFIG
+        # shellcheck source=/dev/null
+        source "$CONFIG_FILE"
+    fi
+
+    # Check required commands
+    require_command "curl"
+
+    # Run command
+    case "${COMMAND:-help}" in
+        run)
+            cmd_run
+            ;;
+        status)
+            cmd_status
+            ;;
+        help|"")
+            usage 0
+            ;;
+        *)
+            die "Unknown command: $COMMAND" $E_USAGE
+            ;;
+    esac
+}
+
+main "$@"
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: Complete CLI Tool
+Create a script `file-tool.sh` with:
+- Commands: `list`, `count`, `size`, `help`
+- Options: `-d DIR`, `-t TYPE`, `-v` (verbose)
+- Proper error handling and help message
+
+### Exercise 2: Robust Backup Script
+Create a backup script with:
+- Argument parsing for source/destination
+- Dry-run mode
+- Logging to file
+- Cleanup on interrupt
+- Exit codes for different error types
+
+### Exercise 3: Debuggable Script
+Take an existing script and add:
+- DEBUG mode with `set -x`
+- Verbose logging option
+- Stack trace on error
+- Line number in error messages
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 PRACTICAL PATTERNS CHEAT SHEET                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ARGUMENT PARSING (getopts)                                             │
+│  while getopts ":hvo:" opt; do                                          │
+│      case $opt in                                                       │
+│          h) usage ;;                                                    │
+│          v) VERBOSE=true ;;                                             │
+│          o) OUTPUT="$OPTARG" ;;                                         │
+│          :) echo "Missing arg" ;;                                       │
+│          \?) echo "Invalid opt" ;;                                      │
+│      esac                                                               │
+│  done                                                                   │
+│  shift $((OPTIND - 1))                                                  │
+│                                                                         │
+│  SET OPTIONS                                                            │
+│  set -e          exit on error      set -u          error on unset      │
+│  set -x          print commands     set -o pipefail pipe errors         │
+│  set -euo pipefail                  (recommended combination)           │
+│                                                                         │
+│  TRAP                                                                   │
+│  trap 'cleanup' EXIT                on exit (any reason)                │
+│  trap 'echo INT' INT                on Ctrl+C                           │
+│  trap 'error' ERR                   on error                            │
+│  trap - SIGNAL                      reset to default                    │
+│                                                                         │
+│  ERROR HANDLING                                                         │
+│  die() { echo "$1" >&2; exit 1; }   error and exit                      │
+│  cmd || die "failed"                 check command                       │
+│  [[ -f "$f" ]] || die "not found"   check condition                     │
+│                                                                         │
+│  DEBUGGING                                                              │
+│  set -x / set +x                    enable/disable tracing              │
+│  echo "DEBUG: $var" >&2             debug print                         │
+│  DEBUG=1 ./script.sh                enable via environment              │
+│  $LINENO                            current line number                 │
+│  ${FUNCNAME[0]}                     current function name               │
+│                                                                         │
+│  SCRIPT HEADER                                                          │
+│  #!/usr/bin/env bash                                                    │
+│  set -euo pipefail                                                      │
+│  readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```

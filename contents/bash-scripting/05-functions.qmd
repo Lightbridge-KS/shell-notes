@@ -1,0 +1,751 @@
+---
+title: "Module 5: FUNCTIONS"
+---
+
+## 5.1 Defining & Calling Functions
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    FUNCTION SYNTAX OPTIONS                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Style 1 (Recommended):                                                │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  function_name() {                                              │   │
+│   │      commands                                                   │   │
+│   │  }                                                              │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Style 2 (Legacy):                                                     │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  function function_name {                                       │   │
+│   │      commands                                                   │   │
+│   │  }                                                              │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Style 3 (Both - redundant but valid):                                 │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  function function_name() {                                     │   │
+│   │      commands                                                   │   │
+│   │  }                                                              │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   RECOMMENDATION: Use Style 1 for POSIX compatibility                  │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Function Definition
+
+```bash
+#!/usr/bin/env bash
+
+# Define a simple function
+greet() {
+    echo "Hello, World!"
+}
+
+# Call the function (no parentheses!)
+greet
+
+# Function with commands
+show_date() {
+    echo "Current date: $(date +%Y-%m-%d)"
+    echo "Current time: $(date +%H:%M:%S)"
+}
+
+show_date
+```
+
+### Functions Must Be Defined Before Use
+
+```bash
+#!/usr/bin/env bash
+
+# ERROR: Function not yet defined
+# greet  # This would fail
+
+greet() {
+    echo "Hello!"
+}
+
+# OK: Now it's defined
+greet
+
+# Common pattern: Define all functions first, call main at end
+main() {
+    setup
+    process
+    cleanup
+}
+
+setup() { echo "Setting up..."; }
+process() { echo "Processing..."; }
+cleanup() { echo "Cleaning up..."; }
+
+# Run main (at end of script)
+main
+```
+
+### One-liner Functions
+
+```bash
+#!/usr/bin/env bash
+
+# Note: Need semicolon before closing brace
+say_hi() { echo "Hi!"; }
+
+# Multiple commands
+timestamp() { echo "[$(date '+%H:%M:%S')]"; }
+
+# With conditional
+is_root() { [[ $EUID -eq 0 ]]; }
+
+# Usage
+if is_root; then
+    echo "Running as root"
+fi
+```
+
+---
+
+## 5.2 Arguments & Return Values
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    FUNCTION ARGUMENTS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Functions receive arguments just like scripts:                        │
+│                                                                         │
+│   greet "Alice" "Bob"                                                   │
+│         ▲       ▲                                                       │
+│         $1      $2                                                      │
+│                                                                         │
+│   Inside the function:                                                  │
+│   $1, $2, ...   Positional arguments                                    │
+│   $#            Number of arguments                                     │
+│   $@            All arguments (as separate words)                       │
+│   $*            All arguments (as single string)                        │
+│                                                                         │
+│   NOTE: These shadow the script's arguments inside the function!        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Passing Arguments
+
+```bash
+#!/usr/bin/env bash
+
+# Function with arguments
+greet() {
+    local name="$1"
+    local greeting="${2:-Hello}"  # Default value
+
+    echo "$greeting, $name!"
+}
+
+greet "Alice"           # Hello, Alice!
+greet "Bob" "Hi"        # Hi, Bob!
+greet "Carol" "Hey"     # Hey, Carol!
+
+# Multiple arguments
+sum() {
+    local total=0
+    for num in "$@"; do
+        ((total += num))
+    done
+    echo $total
+}
+
+result=$(sum 1 2 3 4 5)
+echo "Sum: $result"  # Sum: 15
+
+# Show argument info
+arg_info() {
+    echo "Number of args: $#"
+    echo "All args: $@"
+    echo "First arg: $1"
+    echo "Second arg: $2"
+}
+
+arg_info one two three
+```
+
+### Return Values
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    RETURN VALUES                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Bash functions have TWO ways to "return" values:                      │
+│                                                                         │
+│   1. EXIT STATUS (return command)                                       │
+│      ├── Like a command's exit code                                     │
+│      ├── Only integers 0-255                                            │
+│      ├── 0 = success, non-zero = failure                                │
+│      └── Accessed via $?                                                │
+│                                                                         │
+│   2. OUTPUT (echo/printf)                                               │
+│      ├── Print to stdout                                                │
+│      ├── Can be any string/data                                         │
+│      └── Capture with command substitution $(func)                      │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  return N     Set exit status (0-255), exit function            │   │
+│   │  echo "X"     Output value, continue or exit function           │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Using return for status (boolean-like)
+is_even() {
+    local num=$1
+    if (( num % 2 == 0 )); then
+        return 0  # Success = true
+    else
+        return 1  # Failure = false
+    fi
+}
+
+if is_even 4; then
+    echo "4 is even"
+fi
+
+if ! is_even 7; then
+    echo "7 is not even"
+fi
+
+# Using echo for output (return data)
+get_username() {
+    echo "$USER"
+}
+
+name=$(get_username)
+echo "Current user: $name"
+
+# Calculate and return value
+add() {
+    local a=$1
+    local b=$2
+    echo $((a + b))
+}
+
+result=$(add 5 3)
+echo "5 + 3 = $result"
+
+# Multiple output values
+get_dimensions() {
+    local file="$1"
+    local width=1920
+    local height=1080
+    echo "$width $height"
+}
+
+read -r width height <<< "$(get_dimensions image.jpg)"
+echo "Width: $width, Height: $height"
+```
+
+### Combining Return Status and Output
+
+```bash
+#!/usr/bin/env bash
+
+# Best practice: Use return for status, echo for data
+find_file() {
+    local filename="$1"
+    local search_path="${2:-.}"
+
+    local result
+    result=$(find "$search_path" -name "$filename" -print -quit 2>/dev/null)
+
+    if [[ -n "$result" ]]; then
+        echo "$result"  # Output the path
+        return 0        # Success
+    else
+        return 1        # Not found
+    fi
+}
+
+# Usage
+if path=$(find_file "config.txt" /etc); then
+    echo "Found at: $path"
+else
+    echo "File not found"
+fi
+
+# Validate and return
+validate_email() {
+    local email="$1"
+
+    if [[ "$email" =~ ^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+if validate_email "user@example.com"; then
+    echo "Valid email"
+else
+    echo "Invalid email"
+fi
+```
+
+---
+
+## 5.3 Local Variables & Scope
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    VARIABLE SCOPE                                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   By default, all variables in Bash are GLOBAL                          │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  x=10                                                           │   │
+│   │                                                                 │   │
+│   │  my_func() {                                                    │   │
+│   │      x=20           # Modifies GLOBAL x!                        │   │
+│   │      y=30           # Creates GLOBAL y!                         │   │
+│   │      local z=40     # LOCAL to this function                    │   │
+│   │  }                                                              │   │
+│   │                                                                 │   │
+│   │  my_func                                                        │   │
+│   │  echo $x   # 20 (was modified)                                  │   │
+│   │  echo $y   # 30 (was created)                                   │   │
+│   │  echo $z   # (empty - local var is gone)                        │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   ALWAYS use 'local' for function variables (unless intentional)       │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Problem Without local
+
+```bash
+#!/usr/bin/env bash
+
+counter=0
+
+increment() {
+    counter=$((counter + 1))  # Modifies global
+    temp=100                   # Creates global!
+}
+
+echo "Before: counter=$counter"
+increment
+increment
+increment
+echo "After: counter=$counter"  # 3
+echo "Temp: $temp"              # 100 (leaked from function!)
+```
+
+### Using local Properly
+
+```bash
+#!/usr/bin/env bash
+
+# Good practice: Declare all variables as local
+process_file() {
+    local filename="$1"
+    local line_count
+    local word_count
+
+    line_count=$(wc -l < "$filename")
+    word_count=$(wc -w < "$filename")
+
+    echo "File: $filename"
+    echo "Lines: $line_count, Words: $word_count"
+}
+
+# Combining declaration and assignment
+calculate() {
+    local a="$1"
+    local b="$2"
+    local result=$((a + b))  # Declare and assign
+
+    echo "$result"
+}
+
+# Be careful: local + command substitution hides exit status
+bad_example() {
+    local output=$(some_command)  # Exit status of some_command is LOST
+    local status=$?               # This is exit status of 'local', not some_command!
+}
+
+good_example() {
+    local output
+    output=$(some_command)       # Now $? reflects some_command
+    local status=$?
+}
+```
+
+### Nested Functions and Scope
+
+```bash
+#!/usr/bin/env bash
+
+outer() {
+    local outer_var="I'm from outer"
+
+    inner() {
+        local inner_var="I'm from inner"
+        echo "Inner sees: $outer_var"   # Can see parent's local
+        echo "Inner's own: $inner_var"
+    }
+
+    inner
+    echo "Outer sees inner_var: $inner_var"  # Empty (inner's local)
+}
+
+outer
+```
+
+### readonly for Constants
+
+```bash
+#!/usr/bin/env bash
+
+# Global constants
+readonly VERSION="1.0.0"
+readonly CONFIG_DIR="/etc/myapp"
+
+setup() {
+    # Local readonly
+    local -r max_retries=3    # -r makes it readonly
+
+    echo "Version: $VERSION"
+    echo "Max retries: $max_retries"
+
+    # max_retries=5  # Would cause an error
+}
+
+setup
+```
+
+---
+
+## 5.4 Useful Patterns
+
+### Error Handling Function
+
+```bash
+#!/usr/bin/env bash
+
+# Die function - print error and exit
+die() {
+    local message="${1:-An error occurred}"
+    local code="${2:-1}"
+
+    echo "ERROR: $message" >&2
+    exit "$code"
+}
+
+# Usage
+[[ -f "config.txt" ]] || die "Config file not found" 2
+
+# With function name for debugging
+die_with_location() {
+    local message="$1"
+    local code="${2:-1}"
+
+    echo "ERROR in ${FUNCNAME[1]}(): $message" >&2
+    exit "$code"
+}
+
+process_data() {
+    [[ -n "$1" ]] || die_with_location "No input provided"
+    # ...
+}
+```
+
+### Logging Functions
+
+```bash
+#!/usr/bin/env bash
+
+# Simple logger
+log() {
+    local level="$1"
+    shift
+    local message="$*"
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+
+    echo "[$timestamp] [$level] $message"
+}
+
+# Convenience functions
+log_info() { log "INFO" "$@"; }
+log_warn() { log "WARN" "$@" >&2; }
+log_error() { log "ERROR" "$@" >&2; }
+log_debug() {
+    [[ "${DEBUG:-}" == "1" ]] && log "DEBUG" "$@"
+}
+
+# Usage
+log_info "Starting application"
+log_warn "Config file missing, using defaults"
+log_error "Failed to connect to database"
+
+DEBUG=1 log_debug "Variable x = $x"  # Only shows if DEBUG=1
+```
+
+### Retry Pattern
+
+```bash
+#!/usr/bin/env bash
+
+# Retry a command with exponential backoff
+retry() {
+    local max_attempts="${1:-3}"
+    local delay="${2:-1}"
+    shift 2
+    local cmd=("$@")
+
+    local attempt=1
+    while [[ $attempt -le $max_attempts ]]; do
+        log_info "Attempt $attempt/$max_attempts: ${cmd[*]}"
+
+        if "${cmd[@]}"; then
+            log_info "Success on attempt $attempt"
+            return 0
+        fi
+
+        if [[ $attempt -lt $max_attempts ]]; then
+            log_warn "Failed, retrying in ${delay}s..."
+            sleep "$delay"
+            ((delay *= 2))  # Exponential backoff
+        fi
+
+        ((attempt++))
+    done
+
+    log_error "Failed after $max_attempts attempts"
+    return 1
+}
+
+# Usage
+retry 3 2 curl -s http://example.com/api
+```
+
+### Cleanup with trap
+
+```bash
+#!/usr/bin/env bash
+
+# Cleanup function
+cleanup() {
+    local exit_code=$?
+    log_info "Cleaning up..."
+
+    # Remove temp files
+    [[ -f "$TEMP_FILE" ]] && rm -f "$TEMP_FILE"
+
+    # Restore settings
+    # ...
+
+    log_info "Cleanup complete"
+    exit $exit_code
+}
+
+# Register cleanup
+trap cleanup EXIT
+
+# Create temp file
+TEMP_FILE=$(mktemp)
+echo "Working with $TEMP_FILE"
+
+# Cleanup will run automatically on exit
+```
+
+### Validation Functions
+
+```bash
+#!/usr/bin/env bash
+
+# Check if command exists
+require_command() {
+    local cmd="$1"
+    if ! command -v "$cmd" &>/dev/null; then
+        die "Required command not found: $cmd"
+    fi
+}
+
+# Check if file exists and readable
+require_file() {
+    local file="$1"
+    if [[ ! -f "$file" ]]; then
+        die "File not found: $file"
+    fi
+    if [[ ! -r "$file" ]]; then
+        die "File not readable: $file"
+    fi
+}
+
+# Check if directory exists
+require_directory() {
+    local dir="$1"
+    if [[ ! -d "$dir" ]]; then
+        die "Directory not found: $dir"
+    fi
+}
+
+# Validate number
+is_number() {
+    local value="$1"
+    [[ "$value" =~ ^-?[0-9]+$ ]]
+}
+
+is_positive_number() {
+    local value="$1"
+    [[ "$value" =~ ^[0-9]+$ ]] && [[ "$value" -gt 0 ]]
+}
+
+# Usage
+require_command "curl"
+require_command "jq"
+require_file "input.txt"
+
+if ! is_positive_number "$count"; then
+    die "Count must be a positive number"
+fi
+```
+
+### Configuration Loading
+
+```bash
+#!/usr/bin/env bash
+
+# Load config file (key=value format)
+load_config() {
+    local config_file="$1"
+
+    if [[ ! -f "$config_file" ]]; then
+        log_warn "Config file not found: $config_file"
+        return 1
+    fi
+
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+
+        # Trim whitespace
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+
+        # Export as variable
+        export "$key=$value"
+    done < "$config_file"
+}
+
+# Config file (config.conf):
+# database_host=localhost
+# database_port=5432
+# log_level=info
+
+load_config "config.conf"
+echo "Database: $database_host:$database_port"
+```
+
+### Function Library Pattern
+
+```bash
+#!/usr/bin/env bash
+# file: lib/utils.sh
+
+# Prevent multiple inclusion
+[[ -n "${_UTILS_SH_LOADED:-}" ]] && return
+_UTILS_SH_LOADED=1
+
+# Library functions
+utils_log() { echo "[$(date '+%H:%M:%S')] $*"; }
+utils_die() { echo "FATAL: $*" >&2; exit 1; }
+utils_trim() { echo "$1" | xargs; }
+
+# Usage in main script:
+# source lib/utils.sh
+# utils_log "Hello"
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: Calculator Function
+Create a `calc` function that:
+- Takes two numbers and an operator (+, -, *, /)
+- Returns the result
+- Returns error status for division by zero
+
+```bash
+# Expected usage:
+result=$(calc 10 + 5)   # 15
+result=$(calc 20 / 4)   # 5
+calc 10 / 0             # Error!
+```
+
+### Exercise 2: File Size Reporter
+Create a function `file_size_human` that:
+- Takes a filename as argument
+- Returns size in human-readable format (KB, MB, GB)
+- Returns error if file doesn't exist
+
+### Exercise 3: Logger Module
+Create a logger module with:
+- `log_init <logfile>` - Set up logging to file
+- `log_info`, `log_warn`, `log_error` functions
+- Each log entry should have timestamp and level
+- Should write to both file and stderr
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                   FUNCTIONS CHEAT SHEET                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  DEFINITION                                                             │
+│  func_name() { commands; }        standard syntax                       │
+│  function func_name { cmd; }      alternative (bash-only)               │
+│                                                                         │
+│  ARGUMENTS                                                              │
+│  $1, $2, ...    positional args   $#    number of args                  │
+│  "$@"           all args (quoted) $*    all as one string               │
+│  ${1:-default}  default value     shift  remove first arg               │
+│                                                                         │
+│  RETURN VALUES                                                          │
+│  return N       exit status (0-255), 0=success                          │
+│  echo "value"   output data, capture with $(func)                       │
+│  $?             get exit status of last command                         │
+│                                                                         │
+│  SCOPE                                                                  │
+│  local var      local to function                                       │
+│  local -r var   local readonly                                          │
+│  local -i var   local integer                                           │
+│  (no local)     variable is GLOBAL                                      │
+│                                                                         │
+│  SPECIAL VARIABLES                                                      │
+│  ${FUNCNAME[0]}   current function name                                 │
+│  ${FUNCNAME[1]}   caller function name                                  │
+│  ${BASH_SOURCE[0]} current script file                                  │
+│                                                                         │
+│  PATTERNS                                                               │
+│  die() { echo "$1" >&2; exit 1; }     error and exit                    │
+│  require_cmd() { command -v "$1" &>/dev/null || die "Need $1"; }        │
+│  cleanup() { rm -f "$tmp"; }; trap cleanup EXIT                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```

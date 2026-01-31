@@ -15,8 +15,20 @@ book:
           href: "contents/bash-scripting/00-crashcourse-overview.qmd"
         - text: "Foundation"
           href: "contents/bash-scripting/01-foundation.qmd"
-        - text: "Varieble & Data"
+        - text: "Variable & Data"
           href: "contents/bash-scripting/02-variable-data.qmd"
+        - text: "Input & Output"
+          href: "contents/bash-scripting/03-input-output.qmd"
+        - text: "Control Flow"
+          href: "contents/bash-scripting/04-control-flow.qmd"
+        - text: "Functions"
+          href: "contents/bash-scripting/05-functions.qmd"
+        - text: "Text Processing"
+          href: "contents/bash-scripting/06-text-processing.qmd"
+        - text: "File & Directory"
+          href: "contents/bash-scripting/07-file-directory.qmd"
+        - text: "Practical Patterns"
+          href: "contents/bash-scripting/08-practical-patterns.qmd"
     - part: Tricks Explained
       chapters: 
         - text: Here Doc

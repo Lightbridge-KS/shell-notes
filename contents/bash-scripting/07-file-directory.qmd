@@ -1,0 +1,875 @@
+---
+title: "Module 7: FILE & DIRECTORY OPERATIONS"
+---
+
+## 7.1 File Tests
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    FILE TEST OPERATORS                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   EXISTENCE & TYPE                                                      │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  -e FILE    Exists (any type)                                   │   │
+│   │  -f FILE    Regular file                                        │   │
+│   │  -d FILE    Directory                                           │   │
+│   │  -L FILE    Symbolic link                                       │   │
+│   │  -h FILE    Symbolic link (same as -L)                          │   │
+│   │  -b FILE    Block device                                        │   │
+│   │  -c FILE    Character device                                    │   │
+│   │  -S FILE    Socket                                              │   │
+│   │  -p FILE    Named pipe (FIFO)                                   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   PERMISSIONS                                                           │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  -r FILE    Readable by current user                            │   │
+│   │  -w FILE    Writable by current user                            │   │
+│   │  -x FILE    Executable by current user                          │   │
+│   │  -u FILE    Has setuid bit                                      │   │
+│   │  -g FILE    Has setgid bit                                      │   │
+│   │  -k FILE    Has sticky bit                                      │   │
+│   │  -O FILE    Owned by current user                               │   │
+│   │  -G FILE    Owned by current user's group                       │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   SIZE & CONTENT                                                        │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  -s FILE    Exists and size > 0 (not empty)                     │   │
+│   │  -t FD      File descriptor is a terminal                       │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   COMPARISON                                                            │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  FILE1 -nt FILE2    FILE1 newer than FILE2                      │   │
+│   │  FILE1 -ot FILE2    FILE1 older than FILE2                      │   │
+│   │  FILE1 -ef FILE2    Same file (hard links to same inode)        │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic File Existence Checks
+
+```bash
+#!/usr/bin/env bash
+
+file="config.txt"
+dir="data"
+
+# Check if file exists
+if [[ -e "$file" ]]; then
+    echo "$file exists"
+fi
+
+# Check if regular file (not directory, link, etc.)
+if [[ -f "$file" ]]; then
+    echo "$file is a regular file"
+fi
+
+# Check if directory
+if [[ -d "$dir" ]]; then
+    echo "$dir is a directory"
+fi
+
+# Common pattern: Check and create if missing
+[[ -d "logs" ]] || mkdir -p "logs"
+
+# Check if symlink
+if [[ -L "/usr/local/bin/python" ]]; then
+    echo "python is a symbolic link"
+    echo "Points to: $(readlink -f /usr/local/bin/python)"
+fi
+```
+
+### Permission Checks
+
+```bash
+#!/usr/bin/env bash
+
+script="./run.sh"
+
+# Check if readable
+if [[ -r "$script" ]]; then
+    echo "Can read $script"
+fi
+
+# Check if writable
+if [[ -w "$script" ]]; then
+    echo "Can write to $script"
+fi
+
+# Check if executable
+if [[ -x "$script" ]]; then
+    echo "Can execute $script"
+else
+    echo "Cannot execute. Making executable..."
+    chmod +x "$script"
+fi
+
+# Combined checks
+if [[ -f "$script" && -r "$script" && -x "$script" ]]; then
+    echo "Script exists and is runnable"
+    ./"$script"
+fi
+
+# Check ownership
+if [[ -O "/home/$USER/.bashrc" ]]; then
+    echo ".bashrc is owned by you"
+fi
+```
+
+### Size and Empty File Checks
+
+```bash
+#!/usr/bin/env bash
+
+logfile="app.log"
+
+# Check if file is not empty
+if [[ -s "$logfile" ]]; then
+    echo "Log file has content"
+    echo "Size: $(wc -c < "$logfile") bytes"
+else
+    echo "Log file is empty or doesn't exist"
+fi
+
+# Check if output is going to terminal
+if [[ -t 1 ]]; then
+    echo "Output is to terminal, using colors"
+    echo -e "\e[32mGreen text\e[0m"
+else
+    echo "Output is redirected/piped, no colors"
+fi
+```
+
+### File Comparison
+
+```bash
+#!/usr/bin/env bash
+
+# Check which file is newer
+if [[ "new.txt" -nt "old.txt" ]]; then
+    echo "new.txt was modified more recently"
+fi
+
+# Check if files are the same (same inode)
+if [[ "file1" -ef "file2" ]]; then
+    echo "file1 and file2 are the same file (hard links)"
+fi
+
+# Rebuild if source is newer than target
+if [[ "source.c" -nt "program" ]] || [[ ! -f "program" ]]; then
+    echo "Recompiling..."
+    gcc source.c -o program
+fi
+```
+
+### Practical Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Safely read config file
+load_config() {
+    local config_file="$1"
+
+    if [[ ! -e "$config_file" ]]; then
+        echo "ERROR: Config file not found: $config_file" >&2
+        return 1
+    fi
+
+    if [[ ! -f "$config_file" ]]; then
+        echo "ERROR: Not a regular file: $config_file" >&2
+        return 1
+    fi
+
+    if [[ ! -r "$config_file" ]]; then
+        echo "ERROR: Cannot read: $config_file" >&2
+        return 1
+    fi
+
+    source "$config_file"
+}
+
+# Ensure directory exists with proper permissions
+ensure_dir() {
+    local dir="$1"
+    local mode="${2:-755}"
+
+    if [[ ! -d "$dir" ]]; then
+        mkdir -p "$dir" || return 1
+        chmod "$mode" "$dir"
+    fi
+
+    if [[ ! -w "$dir" ]]; then
+        echo "WARNING: Directory not writable: $dir" >&2
+    fi
+}
+
+# Check log rotation needed
+check_log_rotation() {
+    local logfile="$1"
+    local max_size="${2:-10485760}"  # 10MB default
+
+    if [[ -f "$logfile" ]]; then
+        local size
+        size=$(stat -f%z "$logfile" 2>/dev/null || stat -c%s "$logfile")
+        if [[ $size -gt $max_size ]]; then
+            mv "$logfile" "$logfile.$(date +%Y%m%d)"
+            echo "Log rotated: $logfile"
+        fi
+    fi
+}
+```
+
+---
+
+## 7.2 Globbing & Pattern Matching
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    GLOB PATTERNS                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Basic Patterns (always available)                                     │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  *           Match any string (including empty)                 │   │
+│   │  ?           Match any single character                         │   │
+│   │  [abc]       Match a, b, or c                                   │   │
+│   │  [a-z]       Match range a through z                            │   │
+│   │  [!abc]      Match anything except a, b, c                      │   │
+│   │  [^abc]      Same as [!abc]                                     │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Extended Patterns (shopt -s extglob)                                  │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  ?(pattern)  Zero or one occurrence                             │   │
+│   │  *(pattern)  Zero or more occurrences                           │   │
+│   │  +(pattern)  One or more occurrences                            │   │
+│   │  @(pattern)  Exactly one occurrence                             │   │
+│   │  !(pattern)  Anything except pattern                            │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Note: Globs are NOT regex - different syntax!                         │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Glob Patterns
+
+```bash
+#!/usr/bin/env bash
+
+# Match any files
+ls *.txt              # All .txt files
+ls file?.txt          # file1.txt, fileA.txt, etc.
+ls data[0-9].csv      # data0.csv through data9.csv
+ls log[!0-9].txt      # log files NOT ending in digit
+
+# Multiple patterns
+ls *.{txt,csv,json}   # Brace expansion (not glob, but useful)
+
+# Hidden files
+ls .*                 # All hidden files
+ls .[!.]*             # Hidden files except . and ..
+
+# Recursive with **
+shopt -s globstar     # Enable ** pattern
+ls **/*.py            # All .py files recursively
+ls **/*.{js,ts}       # All JS/TS files recursively
+shopt -u globstar     # Disable
+```
+
+### Extended Glob Patterns
+
+```bash
+#!/usr/bin/env bash
+
+# Enable extended globbing
+shopt -s extglob
+
+# ?(pattern) - zero or one
+ls file?(.bak)        # file or file.bak
+
+# *(pattern) - zero or more
+ls *.*(txt|log)       # Files ending in any number of .txt or .log
+
+# +(pattern) - one or more
+ls *.+(txt|csv)       # Files with .txt or .csv extension
+
+# @(pattern) - exactly one
+ls *.@(txt|csv)       # Same as above for single extension
+
+# !(pattern) - anything except
+ls !(*.txt)           # All files except .txt
+ls !(*.txt|*.log)     # Except .txt and .log
+rm !(important.*)     # Remove all except important.*
+
+# Combine patterns
+ls @(data|report)_+([0-9]).csv  # data_1.csv, report_123.csv, etc.
+
+shopt -u extglob      # Disable when done
+```
+
+### Glob Options (shopt)
+
+```bash
+#!/usr/bin/env bash
+
+# nullglob - unmatched glob returns empty (not literal)
+shopt -s nullglob
+files=(*.xyz)         # Empty array if no matches
+echo "${#files[@]}"   # 0 (instead of error)
+shopt -u nullglob
+
+# dotglob - * includes hidden files
+shopt -s dotglob
+ls *                  # Includes .hidden files
+shopt -u dotglob
+
+# nocaseglob - case-insensitive matching
+shopt -s nocaseglob
+ls *.TXT              # Matches .txt, .TXT, .Txt
+shopt -u nocaseglob
+
+# failglob - error on no match
+shopt -s failglob
+ls *.xyz 2>/dev/null  # Error if no matches
+shopt -u failglob
+
+# Combining options
+shopt -s nullglob globstar extglob
+for file in **/*.@(jpg|png|gif); do
+    echo "Image: $file"
+done
+shopt -u nullglob globstar extglob
+```
+
+### Pattern Matching in Case and [[ ]]
+
+```bash
+#!/usr/bin/env bash
+
+filename="report_2024_final.pdf"
+
+# Pattern matching in [[]]
+if [[ "$filename" == *.pdf ]]; then
+    echo "PDF file"
+fi
+
+if [[ "$filename" == report_* ]]; then
+    echo "It's a report"
+fi
+
+if [[ "$filename" == *_[0-9][0-9][0-9][0-9]_* ]]; then
+    echo "Has year in filename"
+fi
+
+# In case statement
+case "$filename" in
+    *.txt)
+        echo "Text file"
+        ;;
+    *.pdf)
+        echo "PDF document"
+        ;;
+    *.@(jpg|jpeg|png|gif))
+        echo "Image file"
+        ;;
+    report_*)
+        echo "Report file"
+        ;;
+esac
+
+# Negation with extglob
+shopt -s extglob
+if [[ "$filename" == !(*.tmp) ]]; then
+    echo "Not a temp file"
+fi
+shopt -u extglob
+```
+
+---
+
+## 7.3 find & xargs
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    find COMMAND                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   find [path] [options] [tests] [actions]                               │
+│                                                                         │
+│   TESTS (filtering)                                                     │
+│   -name "*.txt"       Name matches pattern (case-sensitive)             │
+│   -iname "*.txt"      Name matches (case-insensitive)                   │
+│   -type f|d|l         Type: file, directory, link                       │
+│   -size +10M          Size greater than 10MB                            │
+│   -mtime -7           Modified in last 7 days                           │
+│   -user username      Owned by user                                     │
+│   -perm 755           Has exact permissions                             │
+│   -empty              Empty files or directories                        │
+│                                                                         │
+│   ACTIONS                                                               │
+│   -print              Print path (default)                              │
+│   -print0             Print null-separated (for xargs)                  │
+│   -delete             Delete found items                                │
+│   -exec cmd {} \;     Run cmd for each item                             │
+│   -exec cmd {} +      Run cmd with all items as arguments               │
+│   -ok cmd {} \;       Like -exec but prompt first                       │
+│                                                                         │
+│   OPERATORS                                                             │
+│   -and, -a            AND (default)                                     │
+│   -or, -o             OR                                                │
+│   -not, !             NOT                                               │
+│   \( expr \)          Grouping                                          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic find Usage
+
+```bash
+#!/usr/bin/env bash
+
+# Find by name
+find . -name "*.txt"                    # All .txt files
+find . -iname "*.TXT"                   # Case-insensitive
+find /home -name "*.log"                # In /home
+
+# Find by type
+find . -type f                          # Files only
+find . -type d                          # Directories only
+find . -type l                          # Symbolic links
+
+# Combine conditions (AND is default)
+find . -type f -name "*.txt"            # .txt files
+find . -type f -name "*.txt" -size +1M  # Large .txt files
+
+# OR conditions
+find . -name "*.txt" -o -name "*.log"   # .txt OR .log
+
+# NOT conditions
+find . -type f ! -name "*.txt"          # Not .txt files
+find . -type f -not -name "*.txt"       # Same
+
+# Limit depth
+find . -maxdepth 1 -name "*.txt"        # Current dir only
+find . -maxdepth 2 -type d              # 2 levels deep max
+find . -mindepth 2 -name "*.txt"        # Skip top level
+```
+
+### Size and Time Filters
+
+```bash
+#!/usr/bin/env bash
+
+# Size filters
+find . -size +100M            # Larger than 100MB
+find . -size -10k             # Smaller than 10KB
+find . -size 1G               # Exactly 1GB
+find . -empty                 # Empty files
+
+# Size units: c(bytes), k(KB), M(MB), G(GB)
+
+# Time filters (modification time)
+find . -mtime 0               # Modified today (last 24h)
+find . -mtime -7              # Modified in last 7 days
+find . -mtime +30             # Modified more than 30 days ago
+
+# Access time (-atime) and change time (-ctime)
+find . -atime -1              # Accessed in last day
+find . -ctime +90             # Changed more than 90 days ago
+
+# Minutes instead of days
+find . -mmin -60              # Modified in last 60 minutes
+
+# Newer than reference file
+find . -newer reference.txt   # Modified after reference.txt
+```
+
+### Actions
+
+```bash
+#!/usr/bin/env bash
+
+# Print (default)
+find . -name "*.txt" -print
+
+# Print null-separated (for xargs -0)
+find . -name "*.txt" -print0
+
+# Delete (careful!)
+find . -name "*.tmp" -delete
+find /tmp -type f -mtime +7 -delete   # Old temp files
+
+# Execute command for each file
+find . -name "*.txt" -exec cat {} \;            # One by one
+find . -name "*.txt" -exec cat {} +             # All at once (faster)
+find . -name "*.sh" -exec chmod +x {} \;        # Make executable
+
+# Multiple commands
+find . -name "*.log" -exec echo "Found: {}" \; -exec wc -l {} \;
+
+# Interactive (-ok prompts before each)
+find . -name "*.bak" -ok rm {} \;
+
+# Print with format
+find . -name "*.txt" -printf "%s %p\n"         # Size and path
+find . -type f -printf "%T+ %p\n" | sort       # Sorted by date
+```
+
+### xargs — Build Commands from Input
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    xargs COMMAND                                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   xargs [options] command                                               │
+│                                                                         │
+│   Takes input lines and builds command arguments                        │
+│                                                                         │
+│   Common Options:                                                       │
+│   -0, --null       Input is null-separated (use with find -print0)      │
+│   -n N             Use N arguments per command                          │
+│   -I {}            Replace {} with input (like find -exec)              │
+│   -P N             Run N processes in parallel                          │
+│   -t               Print command before executing                       │
+│   -p               Prompt before executing                              │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Basic xargs
+echo "file1 file2 file3" | xargs rm        # rm file1 file2 file3
+find . -name "*.txt" | xargs wc -l         # Count lines in all
+
+# Safe handling (spaces in filenames)
+find . -name "*.txt" -print0 | xargs -0 rm    # Null-separated
+
+# One file at a time
+find . -name "*.jpg" | xargs -I {} convert {} {}.png
+
+# Multiple arguments per command
+find . -name "*.txt" | xargs -n 2 echo     # 2 args per echo
+
+# Parallel processing
+find . -name "*.png" -print0 | xargs -0 -P 4 -I {} convert {} {}.jpg
+
+# With placeholder
+ls *.txt | xargs -I {} mv {} backup/{}
+
+# Confirm before running
+find . -name "*.bak" | xargs -p rm
+
+# Show commands being run
+find . -name "*.log" | xargs -t gzip
+```
+
+### Practical find + xargs Examples
+
+```bash
+#!/usr/bin/env bash
+
+# Find and delete old log files
+find /var/log -name "*.log" -mtime +30 -delete
+
+# Find large files and show sizes
+find . -type f -size +100M -exec du -h {} \; | sort -rh
+
+# Find and grep
+find . -name "*.py" -exec grep -l "import requests" {} +
+
+# Find and replace in files
+find . -name "*.txt" -exec sed -i 's/old/new/g' {} +
+
+# Backup all modified files
+find . -name "*.conf" -mtime -1 -exec cp {} /backup/ \;
+
+# Count files by extension
+find . -type f -name "*.*" | sed 's/.*\.//' | sort | uniq -c | sort -rn
+
+# Find and compress old logs
+find /logs -name "*.log" -mtime +7 -print0 | xargs -0 gzip
+
+# Parallel image conversion
+find . -name "*.png" -print0 | xargs -0 -P 8 -I {} convert {} -resize 50% small_{}
+
+# Find duplicates by checksum
+find . -type f -exec md5sum {} + | sort | uniq -d -w32
+
+# Find broken symlinks
+find . -xtype l
+
+# Find and chmod directories vs files differently
+find . -type d -exec chmod 755 {} +
+find . -type f -exec chmod 644 {} +
+```
+
+---
+
+## 7.4 Batch File Processing
+
+### Rename Files
+
+```bash
+#!/usr/bin/env bash
+
+# Simple rename with mv
+for file in *.txt; do
+    mv "$file" "${file%.txt}.md"
+done
+
+# Add prefix
+for file in *.jpg; do
+    mv "$file" "photo_$file"
+done
+
+# Add suffix
+for file in *.jpg; do
+    mv "$file" "${file%.jpg}_backup.jpg"
+done
+
+# Replace in filenames
+for file in *old*; do
+    mv "$file" "${file//old/new}"
+done
+
+# Lowercase all filenames
+for file in *; do
+    mv "$file" "${file,,}" 2>/dev/null
+done
+
+# Sequential numbering
+counter=1
+for file in *.jpg; do
+    mv "$file" "$(printf '%03d.jpg' $counter)"
+    ((counter++))
+done
+
+# Using rename (perl-based, if available)
+rename 's/\.txt$/.md/' *.txt
+rename 'y/A-Z/a-z/' *
+rename 's/photo/image/g' *.jpg
+```
+
+### Batch Processing Scripts
+
+```bash
+#!/usr/bin/env bash
+# process_images.sh - Batch image processing
+
+set -euo pipefail
+
+INPUT_DIR="${1:-.}"
+OUTPUT_DIR="${2:-./output}"
+MAX_JOBS="${3:-4}"
+
+mkdir -p "$OUTPUT_DIR"
+
+process_image() {
+    local file="$1"
+    local output="$OUTPUT_DIR/$(basename "$file")"
+
+    echo "Processing: $file"
+
+    # Example: resize and convert
+    convert "$file" -resize 800x600 "$output"
+}
+
+export -f process_image
+export OUTPUT_DIR
+
+# Process in parallel
+find "$INPUT_DIR" -maxdepth 1 -type f \( -name "*.jpg" -o -name "*.png" \) -print0 |
+    xargs -0 -P "$MAX_JOBS" -I {} bash -c 'process_image "$@"' _ {}
+
+echo "Done! Processed files in $OUTPUT_DIR"
+```
+
+### File Organization Script
+
+```bash
+#!/usr/bin/env bash
+# organize_files.sh - Sort files by type
+
+set -euo pipefail
+
+SOURCE_DIR="${1:-.}"
+
+declare -A CATEGORIES=(
+    ["images"]="jpg jpeg png gif bmp svg"
+    ["documents"]="pdf doc docx txt md"
+    ["audio"]="mp3 wav flac aac"
+    ["video"]="mp4 mkv avi mov"
+    ["archives"]="zip tar gz 7z rar"
+    ["code"]="py js ts sh bash"
+)
+
+organize() {
+    local file="$1"
+    local ext="${file##*.}"
+    ext="${ext,,}"  # Lowercase
+
+    for category in "${!CATEGORIES[@]}"; do
+        if [[ " ${CATEGORIES[$category]} " =~ " $ext " ]]; then
+            mkdir -p "$SOURCE_DIR/$category"
+            mv "$file" "$SOURCE_DIR/$category/"
+            echo "Moved: $(basename "$file") -> $category/"
+            return
+        fi
+    done
+
+    # No match - move to misc
+    mkdir -p "$SOURCE_DIR/misc"
+    mv "$file" "$SOURCE_DIR/misc/"
+    echo "Moved: $(basename "$file") -> misc/"
+}
+
+# Process files (not directories)
+for file in "$SOURCE_DIR"/*; do
+    [[ -f "$file" ]] && organize "$file"
+done
+
+echo "Organization complete!"
+```
+
+### Backup Script
+
+```bash
+#!/usr/bin/env bash
+# backup.sh - Incremental backup script
+
+set -euo pipefail
+
+SOURCE="${1:?Usage: $0 SOURCE DEST}"
+DEST="${2:?Usage: $0 SOURCE DEST}"
+DATE=$(date +%Y%m%d_%H%M%S)
+BACKUP_DIR="$DEST/backup_$DATE"
+LATEST_LINK="$DEST/latest"
+
+# Create backup using rsync with hard links
+rsync -av --delete \
+    --link-dest="$LATEST_LINK" \
+    "$SOURCE/" "$BACKUP_DIR/"
+
+# Update latest link
+rm -f "$LATEST_LINK"
+ln -s "$BACKUP_DIR" "$LATEST_LINK"
+
+# Remove backups older than 30 days
+find "$DEST" -maxdepth 1 -type d -name "backup_*" -mtime +30 -exec rm -rf {} +
+
+echo "Backup complete: $BACKUP_DIR"
+```
+
+### Log Processing
+
+```bash
+#!/usr/bin/env bash
+# process_logs.sh - Compress and archive old logs
+
+set -euo pipefail
+
+LOG_DIR="${1:-/var/log}"
+ARCHIVE_DIR="${2:-/var/log/archive}"
+DAYS_OLD="${3:-7}"
+
+mkdir -p "$ARCHIVE_DIR"
+
+# Find and compress old logs
+find "$LOG_DIR" -maxdepth 1 -type f -name "*.log" -mtime +"$DAYS_OLD" |
+while IFS= read -r logfile; do
+    filename=$(basename "$logfile")
+    echo "Compressing: $filename"
+
+    gzip -c "$logfile" > "$ARCHIVE_DIR/${filename}.$(date +%Y%m%d).gz"
+    > "$logfile"  # Truncate original
+
+    echo "  Archived to: ${filename}.$(date +%Y%m%d).gz"
+done
+
+# Clean archives older than 90 days
+find "$ARCHIVE_DIR" -type f -name "*.gz" -mtime +90 -delete
+
+echo "Log processing complete"
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: Safe Delete Script
+Create a script `safe-rm.sh` that:
+1. Moves files to a trash directory instead of deleting
+2. Creates trash dir if it doesn't exist
+3. Handles name collisions by adding timestamp
+4. Has a `-e` flag to empty the trash
+
+### Exercise 2: File Statistics Reporter
+Create a script that reports:
+1. Total number of files and directories
+2. Breakdown by file type (extension)
+3. Largest 10 files
+4. Files modified in the last 24 hours
+
+### Exercise 3: Duplicate File Finder
+Create a script that:
+1. Finds files with identical content (by checksum)
+2. Groups duplicates together
+3. Shows space that could be saved
+4. Optional: Remove duplicates keeping oldest
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                 FILE & DIRECTORY CHEAT SHEET                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  FILE TESTS                                                             │
+│  [[ -e file ]]   exists            [[ -f file ]]   regular file         │
+│  [[ -d path ]]   directory         [[ -L link ]]   symbolic link        │
+│  [[ -r file ]]   readable          [[ -w file ]]   writable             │
+│  [[ -x file ]]   executable        [[ -s file ]]   not empty            │
+│  [[ f1 -nt f2 ]] f1 newer          [[ f1 -ot f2 ]] f1 older             │
+│                                                                         │
+│  GLOB PATTERNS                                                          │
+│  *              any string         ?              single char           │
+│  [abc]          a, b, or c         [a-z]          range                 │
+│  [!abc]         not a,b,c          **/*.txt       recursive (globstar)  │
+│                                                                         │
+│  EXTENDED GLOBS (shopt -s extglob)                                      │
+│  ?(pat)         0 or 1             *(pat)         0 or more             │
+│  +(pat)         1 or more          @(pat)         exactly 1             │
+│  !(pat)         not pattern                                             │
+│                                                                         │
+│  find EXAMPLES                                                          │
+│  find . -name "*.txt"              by name                              │
+│  find . -type f -size +10M         large files                          │
+│  find . -mtime -7                  last 7 days                          │
+│  find . -exec cmd {} \;            run command                          │
+│  find . -name "*.log" -delete      delete matches                       │
+│                                                                         │
+│  xargs EXAMPLES                                                         │
+│  find . | xargs cmd                build arguments                      │
+│  find . -print0 | xargs -0         handle spaces                        │
+│  ... | xargs -P 4                  parallel (4 jobs)                    │
+│  ... | xargs -I {} cmd {}          use placeholder                      │
+│                                                                         │
+│  RENAME PATTERNS                                                        │
+│  mv "$f" "${f%.old}.new"           change extension                     │
+│  mv "$f" "prefix_$f"               add prefix                           │
+│  mv "$f" "${f//old/new}"           replace in name                      │
+│  mv "$f" "${f,,}"                  lowercase                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
