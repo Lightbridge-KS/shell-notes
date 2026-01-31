@@ -5,6 +5,8 @@ book:
   title: "Shell Notes"
   author: "Kittipos Sirivongrungson"
   date: today
+  repo-url: https://github.com/Lightbridge-KS/shell-notes
+  site-url: https://shell-notes-lightbridge.netlify.app
   chapters:
     - index.qmd
     - part: Bash Scripting
