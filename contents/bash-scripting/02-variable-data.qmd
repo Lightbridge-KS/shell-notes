@@ -1,0 +1,943 @@
+---
+title: "Module 2: VARIABLES & DATA"
+---
+
+## 2.1 Variable Declaration & Assignment
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    VARIABLE BASICS IN BASH                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   CRITICAL RULE: NO SPACES around the = sign!                           │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────┐       │
+│   │  name="John"      ✓ Correct                                 │       │
+│   │  name = "John"    ✗ Error! (bash thinks 'name' is command)  │       │
+│   │  name= "John"     ✗ Error!                                  │       │
+│   │  name ="John"     ✗ Error!                                  │       │
+│   └─────────────────────────────────────────────────────────────┘       │
+│                                                                         │
+│   ACCESSING VARIABLES                                                   │
+│   ┌─────────────────────────────────────────────────────────────┐       │
+│   │  $name            Basic access                              │       │
+│   │  ${name}          Explicit boundary (recommended)           │       │
+│   │  "${name}"        Quoted (prevents word splitting) ← BEST   │       │
+│   └─────────────────────────────────────────────────────────────┘       │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Basic Assignment
+
+```bash
+#!/usr/bin/env bash
+
+# String assignment
+name="Alice"
+greeting="Hello, World"
+path="/usr/local/bin"
+
+# Numbers (still stored as strings internally)
+count=42
+price=19.99
+
+# Command output (command substitution)
+current_date=$(date +%Y-%m-%d)
+current_dir=$(pwd)
+file_count=$(ls | wc -l)
+
+# Arithmetic assignment
+((sum = 5 + 3))
+((product = 4 * 7))
+
+# Using let (alternative)
+let "difference = 10 - 3"
+```
+
+### Why Use `${var}` and `"${var}"`?
+
+```bash
+#!/usr/bin/env bash
+
+fruit="apple"
+
+# Problem: ambiguity
+echo "$fruitpie"      # Tries to find variable 'fruitpie' → empty!
+echo "${fruit}pie"    # Output: applepie ✓
+
+# Problem: word splitting
+filename="my document.txt"
+
+# Without quotes - BROKEN (splits into 2 arguments)
+touch $filename       # Creates 2 files: "my" and "document.txt"
+
+# With quotes - CORRECT
+touch "$filename"     # Creates 1 file: "my document.txt"
+```
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│   QUOTING COMPARISON                                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   name="Alice"                                                          │
+│                                                                         │
+│   Double quotes ""   │  Single quotes ''    │  No quotes                │
+│   ──────────────────────────────────────────────────────────────────    │
+│   "Hello $name"      │  'Hello $name'       │  Hello $name              │
+│   → Hello Alice      │  → Hello $name       │  → Hello Alice            │
+│                      │  (literal, no expand)│  (risky with spaces)      │
+│                                                                         │
+│   Rule of thumb:                                                        │
+│   • Use "" when you want variable expansion                             │
+│   • Use '' when you want literal strings                                │
+│   • Always quote variables: "$var"                                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### readonly and declare
+
+```bash
+#!/usr/bin/env bash
+
+# Constants (cannot be changed)
+readonly PI=3.14159
+readonly CONFIG_FILE="/etc/myapp/config.conf"
+
+PI=3.14  # Error: PI: readonly variable
+
+# declare options
+declare -r CONSTANT="immutable"     # readonly
+declare -i number=42                # integer (arithmetic context)
+declare -l lowercase="HELLO"        # convert to lowercase → "hello"
+declare -u uppercase="hello"        # convert to uppercase → "HELLO"
+
+echo "$lowercase"   # Output: hello
+echo "$uppercase"   # Output: HELLO
+
+# Integer declaration enables arithmetic
+declare -i num=5
+num=num+3           # Works! num is now 8 (no need for $(( )))
+echo "$num"         # Output: 8
+```
+
+---
+
+## 2.2 Environment vs Local Variables
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│              ENVIRONMENT vs LOCAL (SHELL) VARIABLES                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │                     PARENT SHELL                                │   │
+│   │                                                                 │   │
+│   │   Environment Variables        Local Variables                  │   │
+│   │   (exported)                   (not exported)                   │   │
+│   │   ┌─────────────────┐          ┌─────────────────┐              │   │
+│   │   │ PATH            │          │ my_var="hello"  │              │   │
+│   │   │ HOME            │          │ count=42        │              │   │
+│   │   │ USER            │          │                 │              │   │
+│   │   │ MY_CONFIG="..." │          └────────┬────────┘              │   │
+│   │   └────────┬────────┘                   │                       │   │
+│   │            │                            ✗ NOT inherited         │   │
+│   │            │ INHERITED                                          │   │
+│   │            ▼                                                    │   │
+│   │   ┌─────────────────────────────────────────────────────────┐   │   │
+│   │   │              CHILD PROCESS (script)                     │   │   │
+│   │   │                                                         │   │   │
+│   │   │   Can access: PATH, HOME, USER, MY_CONFIG               │   │   │
+│   │   │   Cannot access: my_var, count                          │   │   │
+│   │   │                                                         │   │   │
+│   │   └─────────────────────────────────────────────────────────┘   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Working with Environment Variables
+
+```bash
+#!/usr/bin/env bash
+
+# View all environment variables
+env
+printenv
+
+# View specific environment variable
+echo "$HOME"
+echo "$PATH"
+echo "$USER"
+
+# Create local variable (only in current shell)
+my_local="I'm local"
+
+# Export to make it environment variable (inherited by child processes)
+export MY_ENV_VAR="I'm exported"
+
+# One-liner: declare and export
+export DATABASE_URL="postgres://localhost:5432/mydb"
+
+# Export existing variable
+secret_key="abc123"
+export secret_key
+
+# Remove from environment
+unset MY_ENV_VAR
+```
+
+### Demonstration
+
+```bash
+# --- parent.sh ---
+#!/usr/bin/env bash
+
+local_var="I'm local"
+export exported_var="I'm exported"
+
+echo "Parent - local_var: $local_var"
+echo "Parent - exported_var: $exported_var"
+
+# Run child script
+./child.sh
+```
+
+```bash
+# --- child.sh ---
+#!/usr/bin/env bash
+
+echo "Child - local_var: $local_var"         # Empty!
+echo "Child - exported_var: $exported_var"   # Works!
+```
+
+```
+Output:
+Parent - local_var: I'm local
+Parent - exported_var: I'm exported
+Child - local_var: 
+Child - exported_var: I'm exported
+```
+
+### Common Environment Variables
+
+```
+┌────────────────────┬────────────────────────────────────────────────────┐
+│ Variable           │ Description                                        │
+├────────────────────┼────────────────────────────────────────────────────┤
+│ HOME               │ User's home directory (/home/username)             │
+│ USER               │ Current username                                   │
+│ PATH               │ Directories to search for executables              │
+│ PWD                │ Current working directory                          │
+│ OLDPWD             │ Previous working directory (cd -)                  │
+│ SHELL              │ Path to current shell (/bin/bash)                  │
+│ TERM               │ Terminal type                                      │
+│ LANG               │ Language/locale settings                           │
+│ EDITOR             │ Default text editor                                │
+│ HOSTNAME           │ System hostname                                    │
+└────────────────────┴────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2.3 Special Variables
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       SPECIAL VARIABLES                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   SCRIPT & ARGUMENTS                                                    │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  $ ./script.sh arg1 arg2 arg3                                   │   │
+│   │                                                                 │   │
+│   │  $0  →  ./script.sh     (script name)                           │   │
+│   │  $1  →  arg1            (first argument)                        │   │
+│   │  $2  →  arg2            (second argument)                       │   │
+│   │  $3  →  arg3            (third argument)                        │   │
+│   │  ${10} → 10th arg       (braces needed for 10+)                 │   │
+│   │                                                                 │   │
+│   │  $#  →  3               (number of arguments)                   │   │
+│   │  $@  →  arg1 arg2 arg3  (all args, separate words)              │   │
+│   │  $*  →  arg1 arg2 arg3  (all args, single string)               │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   PROCESS & STATUS                                                      │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  $$  →  Current script's PID (process ID)                       │   │
+│   │  $!  →  PID of last background command                          │   │
+│   │  $?  →  Exit status of last command (0=success, non-0=error)    │   │
+│   │  $_  →  Last argument of previous command                       │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### `$@` vs `$*` — The Important Difference
+
+```bash
+#!/usr/bin/env bash
+# save as: args_demo.sh
+
+echo "Using \$* (without quotes):"
+for arg in $*; do
+    echo "  [$arg]"
+done
+
+echo ""
+echo "Using \$@ (without quotes):"
+for arg in $@; do
+    echo "  [$arg]"
+done
+
+echo ""
+echo 'Using "$*" (quoted - single string):'
+for arg in "$*"; do
+    echo "  [$arg]"
+done
+
+echo ""
+echo 'Using "$@" (quoted - preserves arguments):'  # ← BEST PRACTICE
+for arg in "$@"; do
+    echo "  [$arg]"
+done
+```
+
+```bash
+$ ./args_demo.sh "hello world" foo bar
+
+Using $* (without quotes):
+  [hello]
+  [world]
+  [foo]
+  [bar]
+
+Using $@ (without quotes):
+  [hello]
+  [world]
+  [foo]
+  [bar]
+
+Using "$*" (quoted - single string):
+  [hello world foo bar]
+
+Using "$@" (quoted - preserves arguments):
+  [hello world]      ← Preserved as single argument!
+  [foo]
+  [bar]
+```
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│   RULE: Always use "$@" to pass arguments to other commands             │
+│                                                                         │
+│   my_wrapper() {                                                        │
+│       some_command "$@"    ✓ Correct - preserves argument boundaries    │
+│   }                                                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Exit Status (`$?`)
+
+```bash
+#!/usr/bin/env bash
+
+# Every command returns an exit status
+# 0 = success, non-zero = failure
+
+ls /tmp
+echo "Exit status: $?"   # 0 (success)
+
+ls /nonexistent_directory 2>/dev/null
+echo "Exit status: $?"   # 2 (failure)
+
+# Common exit codes
+# 0   - Success
+# 1   - General errors
+# 2   - Misuse of shell command
+# 126 - Command not executable
+# 127 - Command not found
+# 128+n - Killed by signal n
+
+# Use in conditionals
+if grep -q "pattern" file.txt; then
+    echo "Pattern found"   # grep returns 0
+else
+    echo "Pattern not found"   # grep returns 1
+fi
+
+# Or use && and ||
+command && echo "Success" || echo "Failure"
+```
+
+### Practical Example: Script with Arguments
+
+```bash
+#!/usr/bin/env bash
+# save as: greet.sh
+
+set -euo pipefail
+
+# Check argument count
+if [[ $# -lt 1 ]]; then
+    echo "Usage: $0 <name> [greeting]"
+    echo "Example: $0 Alice 'Good morning'"
+    exit 1
+fi
+
+name="$1"
+greeting="${2:-Hello}"   # Default to "Hello" if not provided
+
+echo "$greeting, $name!"
+echo ""
+echo "--- Debug Info ---"
+echo "Script name: $0"
+echo "Number of args: $#"
+echo "All args: $@"
+echo "Process ID: $$"
+```
+
+```bash
+$ ./greet.sh
+Usage: ./greet.sh <name> [greeting]
+Example: ./greet.sh Alice 'Good morning'
+
+$ ./greet.sh Alice
+Hello, Alice!
+
+--- Debug Info ---
+Script name: ./greet.sh
+Number of args: 1
+All args: Alice
+Process ID: 12345
+
+$ ./greet.sh Bob "Good evening"
+Good evening, Bob!
+```
+
+---
+
+## 2.4 Arrays (Indexed & Associative)
+
+### Indexed Arrays (0-based in Bash!)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      INDEXED ARRAYS                                     │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Declaration:                                                          │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  fruits=("apple" "banana" "cherry")                             │   │
+│   │          ▲       ▲        ▲                                     │   │
+│   │          │       │        │                                     │   │
+│   │       [0]     [1]      [2]                                      │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   Access:                                                               │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  ${fruits[0]}     → apple     (first element)                   │   │
+│   │  ${fruits[1]}     → banana    (second element)                  │   │
+│   │  ${fruits[-1]}    → cherry    (last element)                    │   │
+│   │  ${fruits[@]}     → apple banana cherry  (all elements)         │   │
+│   │  ${#fruits[@]}    → 3         (array length)                    │   │
+│   │  ${!fruits[@]}    → 0 1 2     (all indices)                     │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│   ⚠️  Remember: Bash arrays are 0-indexed (unlike Zsh which is 1-based) │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Creating arrays
+fruits=("apple" "banana" "cherry" "date")
+numbers=(1 2 3 4 5)
+mixed=("hello" 42 "world")
+
+# Alternative: declare
+declare -a my_array=("one" "two" "three")
+
+# Empty array, then add elements
+files=()
+files+=("file1.txt")
+files+=("file2.txt")
+files+=("file3.txt")
+
+# Access elements
+echo "${fruits[0]}"      # apple
+echo "${fruits[2]}"      # cherry
+echo "${fruits[-1]}"     # date (last element)
+
+# All elements
+echo "${fruits[@]}"      # apple banana cherry date
+echo "${fruits[*]}"      # apple banana cherry date
+
+# Array length
+echo "${#fruits[@]}"     # 4
+
+# All indices
+echo "${!fruits[@]}"     # 0 1 2 3
+
+# Slice (offset:length)
+echo "${fruits[@]:1:2}"  # banana cherry (start at 1, take 2)
+
+# Modify element
+fruits[1]="blueberry"
+echo "${fruits[@]}"      # apple blueberry cherry date
+
+# Append
+fruits+=("elderberry")
+
+# Delete element (leaves gap!)
+unset 'fruits[2]'
+echo "${fruits[@]}"      # apple blueberry date elderberry
+echo "${!fruits[@]}"     # 0 1 3 4 (index 2 is gone!)
+```
+
+### Iterating Over Arrays
+
+```bash
+#!/usr/bin/env bash
+
+files=("report.pdf" "data file.csv" "image.png")
+
+# WRONG - breaks on spaces
+for file in ${files[@]}; do
+    echo "Processing: $file"
+done
+# Output:
+# Processing: report.pdf
+# Processing: data        ← BROKEN!
+# Processing: file.csv    ← BROKEN!
+# Processing: image.png
+
+# CORRECT - always quote!
+for file in "${files[@]}"; do
+    echo "Processing: $file"
+done
+# Output:
+# Processing: report.pdf
+# Processing: data file.csv  ← Correct!
+# Processing: image.png
+
+# With index
+for i in "${!files[@]}"; do
+    echo "[$i]: ${files[$i]}"
+done
+```
+
+### Associative Arrays (Hash Maps / Dictionaries)
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    ASSOCIATIVE ARRAYS                                   │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   Similar to: Python dict, JavaScript object, R named list              │
+│                                                                         │
+│   ┌─────────────────────────────────────────────────────────────────┐   │
+│   │  declare -A user       ← MUST use declare -A                    │   │
+│   │                                                                 │   │
+│   │  user[name]="Alice"                                             │   │
+│   │  user[age]=30                                                   │   │
+│   │  user[role]="radiologist"                                       │   │
+│   │                                                                 │   │
+│   │       key        value                                          │   │
+│   │       ───        ─────                                          │   │
+│   │      "name"  →  "Alice"                                         │   │
+│   │      "age"   →  "30"                                            │   │
+│   │      "role"  →  "radiologist"                                   │   │
+│   └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# MUST declare with -A
+declare -A patient
+
+# Assign values
+patient[id]="P001"
+patient[name]="John Doe"
+patient[modality]="CT"
+patient[body_part]="chest"
+
+# Or inline (Bash 4+)
+declare -A config=(
+    [host]="localhost"
+    [port]="5432"
+    [database]="radiology_db"
+)
+
+# Access
+echo "${patient[name]}"         # John Doe
+echo "${config[host]}"          # localhost
+
+# All values
+echo "${patient[@]}"            # P001 John Doe CT chest (unordered!)
+
+# All keys
+echo "${!patient[@]}"           # id name modality body_part
+
+# Length (number of keys)
+echo "${#patient[@]}"           # 4
+
+# Check if key exists
+if [[ -v patient[name] ]]; then
+    echo "Name is set"
+fi
+
+# Iterate
+for key in "${!patient[@]}"; do
+    echo "$key: ${patient[$key]}"
+done
+
+# Delete a key
+unset 'patient[body_part]'
+```
+
+### Practical Example: DICOM Metadata
+
+```bash
+#!/usr/bin/env bash
+
+declare -A dicom_tags=(
+    [PatientName]="0010,0010"
+    [PatientID]="0010,0020"
+    [StudyDate]="0008,0020"
+    [Modality]="0008,0060"
+    [BodyPartExamined]="0018,0015"
+)
+
+# Look up a tag
+tag_name="Modality"
+echo "$tag_name has DICOM tag: ${dicom_tags[$tag_name]}"
+
+# List all tags
+echo "Available DICOM tags:"
+for name in "${!dicom_tags[@]}"; do
+    printf "  %-20s %s\n" "$name" "${dicom_tags[$name]}"
+done
+```
+
+---
+
+## 2.5 String Manipulation
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    STRING OPERATIONS                                    │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   str="Hello, World!"                                                   │
+│                                                                         │
+│   LENGTH                                                                │
+│   ${#str}                    → 13                                       │
+│                                                                         │
+│   SUBSTRING (offset:length)                                             │
+│   ${str:0:5}                 → Hello    (first 5 chars)                 │
+│   ${str:7}                   → World!   (from position 7 to end)        │
+│   ${str: -6}                 → World!   (last 6 chars, note space!)     │
+│   ${str:0:-1}                → Hello, World   (remove last char)        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Substring Extraction
+
+```bash
+#!/usr/bin/env bash
+
+filename="patient_ct_scan_001.dcm"
+
+echo "${#filename}"           # 23 (length)
+echo "${filename:0:7}"        # patient (first 7)
+echo "${filename:8:7}"        # ct_scan
+echo "${filename: -3}"        # dcm (last 3, note space before -)
+echo "${filename:0:-4}"       # patient_ct_scan_001 (remove last 4)
+```
+
+### Search and Replace
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PATTERN SUBSTITUTION                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   str="hello hello hello"                                               │
+│                                                                         │
+│   ${str/pattern/replacement}     Replace FIRST match                    │
+│   ${str//pattern/replacement}    Replace ALL matches                    │
+│   ${str/#pattern/replacement}    Replace if at START                    │
+│   ${str/%pattern/replacement}    Replace if at END                      │
+│                                                                         │
+│   Examples:                                                             │
+│   ${str/hello/hi}       → hi hello hello     (first only)               │
+│   ${str//hello/hi}      → hi hi hi           (all)                      │
+│   ${str/#hello/hi}      → hi hello hello     (at start)                 │
+│   ${str/%hello/bye}     → hello hello bye    (at end)                   │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+path="/home/user/documents/report.txt"
+
+# Replace first occurrence
+echo "${path/user/admin}"     # /home/admin/documents/report.txt
+
+# Replace all occurrences
+text="foo bar foo baz foo"
+echo "${text//foo/XXX}"       # XXX bar XXX baz XXX
+
+# Replace at start/end
+filename="test_file_test.txt"
+echo "${filename/#test/exam}" # exam_file_test.txt
+echo "${filename/%txt/md}"    # test_file_test.md
+
+# Delete pattern (replace with nothing)
+echo "${path//\//}"           # homeusersdocumentsreport.txt
+```
+
+### Prefix/Suffix Removal
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PREFIX & SUFFIX REMOVAL                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   file="/path/to/document.tar.gz"                                       │
+│                                                                         │
+│   REMOVE PREFIX (from start)                                            │
+│   ${file#pattern}      Shortest match   → path/to/document.tar.gz       │
+│   ${file##pattern}     Longest match    → document.tar.gz               │
+│                        (# = start)                                      │
+│                                                                         │
+│   REMOVE SUFFIX (from end)                                              │
+│   ${file%pattern}      Shortest match   → /path/to/document.tar         │
+│   ${file%%pattern}     Longest match    → /path/to/document             │
+│                        (% = end)                                        │
+│                                                                         │
+│   Memory trick:                                                         │
+│   # is on the LEFT side of $ on keyboard  → removes from LEFT (prefix)  │
+│   % is on the RIGHT side of $ on keyboard → removes from RIGHT (suffix) │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+filepath="/home/user/data/scan_001.dcm"
+
+# Get filename (remove directory path)
+echo "${filepath##*/}"        # scan_001.dcm
+
+# Get directory (remove filename)
+echo "${filepath%/*}"         # /home/user/data
+
+# Get extension
+echo "${filepath##*.}"        # dcm
+
+# Remove extension
+echo "${filepath%.*}"         # /home/user/data/scan_001
+
+# Get filename without extension
+filename="${filepath##*/}"    # scan_001.dcm
+echo "${filename%.*}"         # scan_001
+
+# Handle multiple extensions
+archive="backup.tar.gz"
+echo "${archive%.*}"          # backup.tar (shortest - one ext)
+echo "${archive%%.*}"         # backup (longest - all ext)
+```
+
+### Case Conversion (Bash 4+)
+
+```bash
+#!/usr/bin/env bash
+
+text="Hello World"
+
+# Lowercase
+echo "${text,,}"              # hello world (all)
+echo "${text,}"               # hello World (first char only)
+
+# Uppercase
+echo "${text^^}"              # HELLO WORLD (all)
+echo "${text^}"               # Hello World (first char only)
+
+# Toggle case (Bash 4+)
+echo "${text~~}"              # hELLO wORLD
+
+# Practical use
+read -p "Enter modality: " modality
+modality="${modality^^}"      # Normalize to uppercase
+echo "Looking for $modality scans..."
+```
+
+### Default Values
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    DEFAULT VALUE SYNTAX                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   ${var:-default}    Use default if var is UNSET or EMPTY               │
+│   ${var-default}     Use default if var is UNSET (empty is OK)          │
+│   ${var:=default}    Set var to default if UNSET or EMPTY               │
+│   ${var=default}     Set var to default if UNSET                        │
+│   ${var:+alternate}  Use alternate if var IS SET and not empty          │
+│   ${var:?error msg}  Exit with error if var is UNSET or EMPTY           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+```bash
+#!/usr/bin/env bash
+
+# Use default if not set
+name="${1:-Anonymous}"
+echo "Hello, $name"
+
+# Set default if not set
+: "${OUTPUT_DIR:=/tmp/output}"   # Common pattern
+echo "Output: $OUTPUT_DIR"
+
+# Error if required variable not set
+: "${API_KEY:?ERROR: API_KEY must be set}"
+
+# Practical example: Configuration with defaults
+config_file="${CONFIG_FILE:-/etc/myapp/config.conf}"
+log_level="${LOG_LEVEL:-info}"
+max_retries="${MAX_RETRIES:-3}"
+
+echo "Config: $config_file"
+echo "Log level: $log_level"
+echo "Max retries: $max_retries"
+```
+
+### Practical String Example: Filename Processing
+
+```bash
+#!/usr/bin/env bash
+# Process DICOM filenames
+
+process_dicom() {
+    local filepath="$1"
+    
+    # Extract components
+    local dir="${filepath%/*}"
+    local filename="${filepath##*/}"
+    local basename="${filename%.*}"
+    local extension="${filename##*.}"
+    
+    # Parse naming convention: PatientID_Modality_SeriesNum.dcm
+    # Example: P12345_CT_001.dcm
+    local patient_id="${basename%%_*}"
+    local rest="${basename#*_}"
+    local modality="${rest%%_*}"
+    local series="${rest##*_}"
+    
+    echo "File: $filepath"
+    echo "  Directory:  $dir"
+    echo "  Filename:   $filename"
+    echo "  Patient ID: $patient_id"
+    echo "  Modality:   $modality"
+    echo "  Series:     $series"
+    echo ""
+}
+
+# Test
+process_dicom "/data/dicom/P12345_CT_001.dcm"
+process_dicom "/data/dicom/P67890_MRI_003.dcm"
+```
+
+---
+
+## 🧪 Practice Exercises
+
+### Exercise 1: Script Arguments
+Create a script `file_info.sh` that accepts a filename and displays its properties:
+
+```bash
+# Expected usage:
+./file_info.sh /path/to/some/file.txt
+
+# Expected output:
+Full path: /path/to/some/file.txt
+Directory: /path/to/some
+Filename: file.txt
+Basename: file
+Extension: txt
+```
+
+### Exercise 2: Patient Array
+Create a script that manages a list of patient IDs:
+
+```bash
+#!/usr/bin/env bash
+
+# Create an array of patient IDs
+# Add 3 patients
+# Print count
+# Loop through and print each
+# Add one more patient
+# Remove the second patient
+# Print final list
+```
+
+### Exercise 3: Config Parser
+Create an associative array to store and display configuration:
+
+```bash
+#!/usr/bin/env bash
+
+# Create associative array 'config' with:
+#   host = localhost
+#   port = 8080
+#   database = radiology
+#   timeout = 30
+
+# Print all settings in format: "key = value"
+```
+
+---
+
+## Quick Reference Card
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    VARIABLES CHEAT SHEET                                │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  BASICS                          SPECIAL VARS                           │
+│  var="value"    assign           $0    script name                      │
+│  ${var}         access           $1-9  arguments                        │
+│  "${var}"       safe access      $#    arg count                        │
+│  export var     environment      $@    all args (quoted!)               │
+│  readonly var   constant         $?    exit status                      │
+│  unset var      delete           $$    process ID                       │
+│                                                                         │
+│  ARRAYS                          STRINGS                                │
+│  arr=(a b c)    indexed          ${#str}        length                  │
+│  ${arr[0]}      first elem       ${str:0:5}     substring               │
+│  ${arr[@]}      all elements     ${str/a/b}     replace first           │
+│  ${#arr[@]}     length           ${str//a/b}    replace all             │
+│  ${!arr[@]}     all indices      ${str#pat}     remove prefix           │
+│  arr+=(d)       append           ${str%pat}     remove suffix           │
+│                                  ${str,,}       lowercase               │
+│  declare -A map associative      ${str^^}       uppercase               │
+│  ${map[key]}    by key           ${var:-def}    default value           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```

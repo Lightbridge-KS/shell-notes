@@ -1,0 +1,237 @@
+---
+title: "Parent vs Child Shell in Bash"
+---
+
+Understanding how parent and child shells work is fundamental to organizing and reusing shell scripts effectively.
+
+## Quick Reference
+
+| Action | Syntax | Shell | Use Case |
+|--------|--------|-------|----------|
+| Execute | `./script.sh` | Child | Independent tasks, isolation |
+| Execute | `bash script.sh` | Child | Same as above |
+| Source | `source script.sh` | Same | Load functions/variables |
+| Source | `. script.sh` | Same | POSIX-compatible sourcing |
+
+
+## The Core Concept
+
+When you run a script, the shell can execute it in two different ways:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     PARENT SHELL                            │
+│  (Your interactive terminal session or calling script)      │
+│                                                             │
+│   Variables: VAR1, VAR2, PATH, HOME, etc.                   │
+│   Current directory: /home/user/project                     │
+│                                                             │
+│        │                              │                     │
+│        │ ./script.sh                  │ source script.sh    │
+│        │ (or bash script.sh)          │ (or . script.sh)    │
+│        ▼                              ▼                     │
+│  ┌───────────────┐              Runs in SAME shell          │
+│  │  CHILD SHELL  │              (no new process)            │
+│  │  (subprocess) │                                          │
+│  │               │              - CAN modify parent vars    │
+│  │ - Gets COPY   │              - CAN change parent's cd    │
+│  │   of env vars │              - Changes persist           │
+│  │ - Own process │                                          │
+│  │ - Changes die │                                          │
+│  │   with shell  │                                          │
+│  └───────────────┘                                          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## Two Ways to Run a Script
+
+### 1. Execute (Child Shell) — `./script.sh` or `bash script.sh`
+
+```bash
+# parent.sh
+export MY_VAR="hello"
+./child.sh          # Runs in NEW subprocess
+echo "$MY_VAR"      # Still "hello" — child can't change parent
+```
+
+```bash
+# child.sh
+MY_VAR="changed"    # Only changes local copy
+NEW_VAR="world"     # Dies when child exits
+cd /tmp             # Only affects child's working directory
+```
+
+### 2. Source (Same Shell) — `source script.sh` or `. script.sh`
+
+```bash
+# parent.sh
+MY_VAR="hello"
+source child.sh     # Runs in SAME process
+echo "$MY_VAR"      # Now "changed" — source modifies parent!
+echo "$NEW_VAR"     # "world" — variable persists
+```
+
+## Environment Variable Inheritance
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ PARENT SHELL                                             │
+│                                                          │
+│   LOCAL_VAR="local"      (not exported, parent only)     │
+│   export EXPORTED="shared"  (exported, passed to child)  │
+│                                                          │
+│         │                                                │
+│         │  ./child.sh                                    │
+│         ▼                                                │
+│   ┌─────────────────────────────────────────────┐        │
+│   │ CHILD SHELL                                 │        │
+│   │                                             │        │
+│   │   echo $LOCAL_VAR    →  (empty!)            │        │
+│   │   echo $EXPORTED     →  "shared"            │        │
+│   │                                             │        │
+│   │   EXPORTED="modified"  # child's copy only  │        │
+│   └─────────────────────────────────────────────┘        │
+│         │                                                │
+│         ▼                                                │
+│   echo $EXPORTED  →  Still "shared" (unchanged)          │
+└──────────────────────────────────────────────────────────┘
+```
+
+## Practical Patterns for Code Reuse
+
+### Pattern 1: Sourced Library (like Python `import`)
+
+```bash
+# lib/utils.sh — Library file (meant to be sourced)
+# ─────────────────────────────────────────────────
+
+log_info() {
+    echo "[INFO] $(date '+%H:%M:%S') $*"
+}
+
+log_error() {
+    echo "[ERROR] $(date '+%H:%M:%S') $*" >&2
+}
+
+validate_file() {
+    [[ -f "$1" ]] || { log_error "File not found: $1"; return 1; }
+}
+```
+
+```bash
+# main.sh — Main script
+# ─────────────────────────────────────────────────
+#!/bin/bash
+
+# Source the library (like Python's "from lib import utils")
+source "$(dirname "$0")/lib/utils.sh"
+
+# Now functions are available in THIS shell
+log_info "Starting process..."
+validate_file "$1" || exit 1
+log_info "Done!"
+```
+
+### Pattern 2: Standalone Script (like Python subprocess)
+
+```bash
+# scripts/process_file.sh — Independent script
+# ─────────────────────────────────────────────────
+#!/bin/bash
+# Processes a file, outputs to stdout, exits with status
+
+input_file="$1"
+[[ -f "$input_file" ]] || { echo "Error" >&2; exit 1; }
+
+# Do processing...
+cat "$input_file" | tr '[:lower:]' '[:upper:]'
+exit 0
+```
+
+```bash
+# main.sh — Calls subprocess, captures output
+# ─────────────────────────────────────────────────
+#!/bin/bash
+
+result=$(./scripts/process_file.sh "data.txt")
+status=$?
+
+if [[ $status -eq 0 ]]; then
+    echo "Got: $result"
+else
+    echo "Failed!"
+fi
+```
+
+## Comparison: Python vs Bash Code Reuse
+
+```
+Python                              Bash
+──────────────────────────────────────────────────────────
+from utils import func    ←→    source lib/utils.sh
+                                (runs in same process)
+
+import subprocess                 
+subprocess.run(["cmd"])   ←→    ./script.sh
+                                (runs in child process)
+
+if __name__ == "__main__" ←→    Pattern shown below
+──────────────────────────────────────────────────────────
+```
+
+### Bash Equivalent of `if __name__ == "__main__"`
+
+```bash
+# lib/utils.sh — Can be both sourced AND executed
+# ─────────────────────────────────────────────────
+
+greet() {
+    echo "Hello, $1!"
+}
+
+# Only runs if executed directly (not sourced)
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Script was executed directly
+    echo "Running utils.sh directly..."
+    greet "World"
+fi
+```
+
+```
+When sourced:     source lib/utils.sh   →  Only defines greet()
+When executed:    ./lib/utils.sh        →  Defines greet() AND runs main code
+```
+
+## Project Structure Example
+
+```
+my_project/
+├── bin/
+│   └── main.sh           # Entry point (executable)
+├── lib/
+│   ├── config.sh         # Configuration variables
+│   ├── logging.sh        # Logging functions
+│   └── utils.sh          # Utility functions
+├── scripts/
+│   ├── backup.sh         # Standalone script (runs as child)
+│   └── deploy.sh         # Standalone script (runs as child)
+└── tests/
+    └── test_utils.sh     # Tests (sources lib/utils.sh)
+```
+
+```bash
+# bin/main.sh
+#!/bin/bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Source libraries (same shell)
+source "$PROJECT_ROOT/lib/config.sh"
+source "$PROJECT_ROOT/lib/logging.sh"
+source "$PROJECT_ROOT/lib/utils.sh"
+
+# Call standalone scripts (child shell)
+"$PROJECT_ROOT/scripts/backup.sh" "$BACKUP_DIR"
+```

@@ -15,13 +15,20 @@ book:
           href: "contents/bash-scripting/00-crashcourse-overview.qmd"
         - text: "Foundation"
           href: "contents/bash-scripting/01-foundation.qmd"
+        - text: "Varieble & Data"
+          href: "contents/bash-scripting/02-variable-data.qmd"
     - part: Tricks Explained
       chapters: 
         - text: Here Doc
           href: "contents/tricks/here_documents.qmd"
         - target: Stick Mode
           href: "contents/tricks/bash-strick-mode.qmd"
-
+        - target: Parent vs Child Shell
+          href: "contents/tricks/parent-vs-child-shell.qmd"
+    - part: Linux 
+      chapters: 
+        - text: File Permission
+          href: "contents/permission/linux-file-permission.qmd"
 
 
 format:
