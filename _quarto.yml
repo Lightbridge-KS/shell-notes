@@ -1,0 +1,40 @@
+project:
+  type: book
+
+book:
+  title: "Shell Notes"
+  author: "Kittipos Sirivongrungson"
+  date: today
+  chapters:
+    - index.qmd
+    - part: Bash Scripting
+      chapters: 
+        - text: "Overview"
+          href: "contents/bash-scripting/00-crashcourse-overview.qmd"
+        - text: "Foundation"
+          href: "contents/bash-scripting/01-foundation.qmd"
+    - part: Tricks Explained
+      chapters: 
+        - text: Here Doc
+          href: "contents/tricks/here_documents.qmd"
+        - target: Stick Mode
+          href: "contents/tricks/bash-strick-mode.qmd"
+
+
+
+format:
+  html:
+    theme:
+      light:
+      - cosmo
+      - brand
+      dark: 
+      - darkly
+    toc-depth: 4
+
+
+freeze: auto
+
+
+
+

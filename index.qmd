@@ -1,0 +1,5 @@
+# Preface {.unnumbered}
+
+::: {.callout-note appearance="default" collapse="false"}
+My Notes about Shell, Bash, Zsh, and Linux
+:::

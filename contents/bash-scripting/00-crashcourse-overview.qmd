@@ -1,0 +1,86 @@
+---
+title: "Practical Bash Scripting Crash Course"
+---
+
+This course will focus on **scripting concepts** rather than basic command-line usage.
+
+---
+
+## Course Outline
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    PRACTICAL BASH SCRIPTING                             │
+│                        Crash Course                                     │
+└─────────────────────────────────────────────────────────────────────────┘
+
+Module 1: FOUNDATIONS
+├── 1.1  Bash vs Zsh: Key Differences
+├── 1.2  Script Structure & Shebang
+├── 1.3  Running Scripts & Permissions
+└── 1.4  Comments & Style Conventions
+
+Module 2: VARIABLES & DATA
+├── 2.1  Variable Declaration & Assignment
+├── 2.2  Environment vs Local Variables
+├── 2.3  Special Variables ($0, $1, $?, $$, etc.)
+├── 2.4  Arrays (Indexed & Associative)
+└── 2.5  String Manipulation
+
+Module 3: INPUT & OUTPUT
+├── 3.1  echo vs printf
+├── 3.2  Reading User Input (read)
+├── 3.3  Command Substitution
+├── 3.4  Redirection (>, >>, <, 2>&1)
+└── 3.5  Pipes and Process Substitution
+
+Module 4: CONTROL FLOW
+├── 4.1  Conditionals (if/elif/else)
+├── 4.2  Test Expressions ([ ], [[ ]], (( )))
+├── 4.3  Case Statements
+├── 4.4  Loops (for, while, until)
+└── 4.5  Loop Control (break, continue)
+
+Module 5: FUNCTIONS
+├── 5.1  Defining & Calling Functions
+├── 5.2  Arguments & Return Values
+├── 5.3  Local Variables & Scope
+└── 5.4  Useful Patterns (error handling, logging)
+
+Module 6: TEXT PROCESSING
+├── 6.1  grep, sed, awk Basics
+├── 6.2  cut, sort, uniq, tr
+├── 6.3  Regular Expressions in Bash
+└── 6.4  Processing CSV/TSV Files
+
+Module 7: FILE & DIRECTORY OPERATIONS
+├── 7.1  File Tests (-f, -d, -e, -r, etc.)
+├── 7.2  Globbing & Pattern Matching
+├── 7.3  find & xargs
+└── 7.4  Batch File Processing
+
+Module 8: PRACTICAL PATTERNS
+├── 8.1  Argument Parsing (getopts)
+├── 8.2  Error Handling & Exit Codes
+├── 8.3  Signal Trapping (trap)
+├── 8.4  Debugging Techniques (set -x, -e, -u)
+└── 8.5  Script Templates & Best Practices
+
+Module 9: REAL-WORLD PROJECTS
+├── 9.1  Automation Script (backup, cleanup)
+├── 9.2  Data Processing Pipeline
+├── 9.3  DICOM/Medical Imaging Workflow Helper
+└── 9.4  Deployment & Cron Jobs
+```
+
+---
+
+## How We'll Learn
+
+| Approach | Description |
+|----------|-------------|
+| **Concept** | Brief explanation with ASCII diagrams |
+| **Example** | Working code snippets |
+| **Practice** | Mini-exercises to try |
+| **Project** | Real-world application |
+

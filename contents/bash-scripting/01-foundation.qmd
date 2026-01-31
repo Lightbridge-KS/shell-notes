@@ -1,0 +1,374 @@
+---
+title: "Module 1: FOUNDATIONS"
+---
+
+## 1.1 Bash vs Zsh: Key Differences
+
+Since you're coming from Zsh, here's what to know:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                      BASH vs ZSH Comparison                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   SIMILARITIES (Most things work the same!)                             │
+│   ├── Basic syntax, variables, loops, functions                         │
+│   ├── Pipes, redirection, command substitution                          │
+│   └── Most built-in commands                                            │
+│                                                                         │
+│   KEY DIFFERENCES                                                       │
+│   ┌────────────────────┬─────────────────┬─────────────────┐            │
+│   │ Feature            │ Bash            │ Zsh             │            │
+│   ├────────────────────┼─────────────────┼─────────────────┤            │
+│   │ Array index start  │ 0               │ 1               │            │
+│   │ Array syntax       │ arr=(a b c)     │ arr=(a b c)     │            │
+│   │ Array access       │ ${arr[0]}       │ $arr[1]         │            │
+│   │ String split       │ Auto on spaces  │ No auto-split   │            │
+│   │ Glob patterns      │ Basic           │ Extended        │            │
+│   │ Associative arrays │ declare -A      │ typeset -A      │            │
+│   └────────────────────┴─────────────────┴─────────────────┘            │
+│                                                                         │
+│   WHY LEARN BASH FOR SCRIPTING?                                         │
+│   ├── Default shell on most Linux servers                               │
+│   ├── Maximum portability (Ubuntu, CentOS, Debian, Docker...)           │
+│   ├── CI/CD pipelines typically use Bash                                │
+│   └── Most online resources/scripts are written in Bash                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Quick Example — Array Indexing:**
+
+```bash
+# Bash (0-indexed)
+arr=(apple banana cherry)
+echo ${arr[0]}    # Output: apple
+
+# Zsh (1-indexed)  
+arr=(apple banana cherry)
+echo $arr[1]      # Output: apple
+```
+
+---
+
+## 1.2 Script Structure & Shebang
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     ANATOMY OF A BASH SCRIPT                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   #!/bin/bash                    ←── Shebang (which interpreter)        │
+│                                                                         │
+│   # ============================================                        │
+│   # Script: backup.sh                                                   │
+│   # Purpose: Backup important files              ←── Header comments    │
+│   # Author: Your Name                                                   │
+│   # ============================================                        │
+│                                                                         │
+│   # --- Configuration ---                        ←── Variables/Config   │
+│   BACKUP_DIR="/tmp/backup"                                              │
+│   LOG_FILE="/var/log/backup.log"                                        │
+│                                                                         │
+│   # --- Functions ---                            ←── Function defs      │
+│   log_message() {                                                       │
+│       echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"                          │
+│   }                                                                     │
+│                                                                         │
+│   # --- Main Script ---                          ←── Main logic         │
+│   log_message "Starting backup..."                                      │
+│   mkdir -p "$BACKUP_DIR"                                                │
+│   # ... more commands ...                                               │
+│                                                                         │
+│   exit 0                                         ←── Exit code          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### The Shebang Explained
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  #!/bin/bash                                                 │
+│  ▲▲                                                          │
+│  ││                                                          │
+│  │└── "bang" (!)                                             │
+│  └─── "sharp/hash" (#)     Together: "shebang" or "hashbang" │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Common Shebangs:**
+
+| Shebang | Use Case |
+|---------|----------|
+| `#!/bin/bash` | Bash specifically (most common) |
+| `#!/usr/bin/env bash` | More portable (finds bash in PATH) |
+| `#!/bin/sh` | POSIX shell (maximum compatibility) |
+| `#!/usr/bin/env python3` | Python scripts |
+
+**Best Practice:** Use `#!/usr/bin/env bash` for portability across systems.
+
+---
+
+## 1.3 Running Scripts & Permissions
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                    3 WAYS TO RUN A SCRIPT                               │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   METHOD 1: Explicit Interpreter                                        │
+│   ┌─────────────────────────────────────────┐                           │
+│   │  $ bash myscript.sh                     │  No execute permission    │
+│   │  $ bash ./myscript.sh                   │  needed. Ignores shebang. │
+│   └─────────────────────────────────────────┘                           │
+│                                                                         │
+│   METHOD 2: Make Executable (Recommended)                               │
+│   ┌─────────────────────────────────────────┐                           │
+│   │  $ chmod +x myscript.sh                 │  Add execute permission   │
+│   │  $ ./myscript.sh                        │  Uses shebang interpreter │
+│   └─────────────────────────────────────────┘                           │
+│                                                                         │
+│   METHOD 3: Source (runs in current shell)                              │
+│   ┌─────────────────────────────────────────┐                           │
+│   │  $ source myscript.sh                   │  Variables persist in     │
+│   │  $ . myscript.sh                        │  current shell session    │
+│   └─────────────────────────────────────────┘                           │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Understanding File Permissions
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│   $ ls -l myscript.sh                                                   │
+│   -rw-r--r--  1 user group  1234 Jan 30 10:00 myscript.sh               │
+│    ▲▲▲▲▲▲▲▲▲                                                            │
+│    │├┴┤├┴┤├┴┤                                                           │
+│    │ │  │  └── Others: read only (r--)                                  │
+│    │ │  └───── Group:  read only (r--)                                  │
+│    │ └──────── Owner:  read+write (rw-)                                 │
+│    └────────── File type (- = regular file)                             │
+│                                                                         │
+│   After: chmod +x myscript.sh                                           │
+│   -rwxr-xr-x  1 user group  1234 Jan 30 10:00 myscript.sh               │
+│      ▲  ▲  ▲                                                            │
+│      └──┴──┴── Execute permission added for all                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Common chmod Commands:**
+
+```bash
+chmod +x script.sh      # Add execute for everyone
+chmod 755 script.sh     # rwx for owner, rx for group/others
+chmod 700 script.sh     # rwx for owner only (private script)
+chmod u+x script.sh     # Add execute for owner (user) only
+```
+
+### Source vs Execute — What's the Difference?
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                                                                         │
+│   ./script.sh (Execute)              source script.sh (Source)          │
+│   ┌───────────────────┐              ┌───────────────────┐              │
+│   │  Parent Shell     │              │  Current Shell    │              │
+│   │  (your terminal)  │              │  (your terminal)  │              │
+│   │                   │              │                   │              │
+│   │   ┌───────────┐   │              │  Script runs      │              │
+│   │   │ Child     │   │              │  HERE directly    │              │
+│   │   │ Process   │   │              │                   │              │
+│   │   │ (script)  │   │              │  Variables and    │              │
+│   │   └───────────┘   │              │  changes PERSIST  │              │
+│   │                   │              │                   │              │
+│   │  Variables die    │              └───────────────────┘              │
+│   │  when child exits │                                                 │
+│   └───────────────────┘                                                 │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+**Example:**
+
+```bash
+# test.sh
+MY_VAR="hello"
+cd /tmp
+```
+
+```bash
+$ pwd
+/home/user
+
+$ ./test.sh        # Execute in subshell
+$ echo $MY_VAR     # Output: (empty - variable not set)
+$ pwd              # Output: /home/user (unchanged)
+
+$ source test.sh   # Source in current shell  
+$ echo $MY_VAR     # Output: hello (variable persists!)
+$ pwd              # Output: /tmp (directory changed!)
+```
+
+---
+
+## 1.4 Comments & Style Conventions
+
+### Comment Types
+
+```bash
+#!/usr/bin/env bash
+
+# Single-line comment - most common
+
+echo "Hello"  # Inline comment after code
+
+# Multi-line comments (3 methods):
+
+# Method 1: Multiple single-line comments
+# This is a longer explanation
+# that spans multiple lines
+# describing what the code does
+
+# Method 2: Here-doc to /dev/null (not recommended but works)
+: << 'COMMENT'
+This is a block comment.
+It can span multiple lines.
+Nothing here will be executed.
+COMMENT
+
+# Method 3: : (colon) with single quotes
+: '
+Another way to do
+multi-line comments
+'
+```
+
+### Style Conventions & Best Practices
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     BASH STYLE GUIDE (Summary)                          │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│   NAMING                                                                │
+│   ├── Variables:      lowercase_with_underscores                        │
+│   ├── Constants:      UPPERCASE_WITH_UNDERSCORES                        │
+│   ├── Functions:      lowercase_with_underscores                        │
+│   └── Script files:   lowercase-with-dashes.sh                          │
+│                                                                         │
+│   QUOTING                                                               │
+│   ├── Always quote variables: "$variable" not $variable                 │
+│   ├── Use single quotes for literal strings: 'no $expansion'            │
+│   └── Use double quotes when you need expansion: "Hello $name"          │
+│                                                                         │
+│   SAFETY                                                                │
+│   ├── Start scripts with:  set -euo pipefail                            │
+│   │   ├── -e  Exit on error                                             │
+│   │   ├── -u  Error on undefined variables                              │
+│   │   └── -o pipefail  Catch errors in pipes                            │
+│   └── Use [[ ]] instead of [ ] for conditionals                         │
+│                                                                         │
+│   FORMATTING                                                            │
+│   ├── Indent with 2 or 4 spaces (be consistent)                         │
+│   ├── Max line length: ~80 characters                                   │
+│   ├── Use blank lines to separate logical sections                      │
+│   └── Put `then`, `do` on same line as `if`, `for`                      │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Script Template
+
+Here's a template you can use as a starting point:
+
+```bash
+#!/usr/bin/env bash
+#
+# Script: script-name.sh
+# Description: Brief description of what this script does
+# Author: Your Name
+# Date: 2025-01-31
+#
+
+# Exit on error, undefined vars, and pipe failures
+set -euo pipefail
+
+# --- Constants ---
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_NAME="$(basename "$0")"
+
+# --- Configuration ---
+LOG_LEVEL="info"
+OUTPUT_DIR="/tmp"
+
+# --- Functions ---
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] $2"
+}
+
+usage() {
+    cat << EOF
+Usage: $SCRIPT_NAME [options]
+
+Options:
+    -h, --help      Show this help message
+    -v, --verbose   Enable verbose output
+    
+Example:
+    $SCRIPT_NAME -v
+EOF
+}
+
+# --- Main ---
+main() {
+    log "info" "Script started"
+    
+    # Your code here
+    
+    log "info" "Script finished"
+}
+
+# Run main function
+main "$@"
+```
+
+---
+
+## 🧪 Practice Exercise
+
+Create your first script following what you've learned:
+
+```bash
+# 1. Create a new file
+touch hello.sh
+
+# 2. Edit it (use VS Code or any editor)
+code hello.sh
+```
+
+**Add this content to `hello.sh`:**
+
+```bash
+#!/usr/bin/env bash
+# My first bash script
+
+set -euo pipefail
+
+# Configuration
+GREETING="Hello"
+NAME="${1:-World}"  # First argument, or "World" if not provided
+
+# Main
+echo "$GREETING, $NAME!"
+echo "Script running from: $(pwd)"
+echo "Script located at: $(dirname "$0")"
+```
+
+```bash
+# 3. Make it executable and run
+chmod +x hello.sh
+./hello.sh
+./hello.sh "Dr. Radiologist"
+```

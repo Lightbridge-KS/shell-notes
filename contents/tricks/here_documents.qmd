@@ -1,0 +1,98 @@
+---
+title: "Here Documents in Shell Scripting"
+---
+
+What does the "EOF" and `<<` do in this trick?
+
+```bash
+    cat << EOF
+Usage: $(basename "$0") [OPTIONS]
+
+Options:
+    --version VERSION    RMOS version to install (e.g., v1.0.0, v1.2.0, latest)
+                         Default: latest
+    --config FILE        Path to hospital configuration YAML file
+
+EOF
+```
+
+## Here Documents in Shell Scripting
+
+The `<<` operator combined with `EOF` creates what's called a **"here document"** (or "heredoc"). It's a way to pass a multi-line string to a command.
+
+### How It Works
+
+```
+Command << DELIMITER
+  ... multi-line content ...
+DELIMITER
+```
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  cat << EOF                                             │
+│       │    │                                            │
+│       │    └── Delimiter (marks START of text block)    │
+│       │                                                 │
+│       └── "Here document" operator                      │
+│                                                         │
+│  Usage: $(basename "$0") [OPTIONS]   ◄── Content        │
+│  Options:                                               │
+│      --version VERSION    ...                           │
+│                                                         │
+│  EOF  ◄── Same delimiter (marks END of text block)      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Key Points
+
+| Aspect | Description |
+|--------|-------------|
+| `<<` | Redirects the following lines as stdin to the command |
+| `EOF` | Just a **convention** — you can use any word (`END`, `HELP`, `DOC`, etc.) |
+| Closing delimiter | Must be on its own line, no leading/trailing spaces |
+| Variable expansion | `$VAR` and `$(command)` **are expanded** inside heredocs |
+
+### Quick Demo
+
+```bash
+name="Alice"
+
+cat << END
+Hello, $name!
+Today is $(date +%A).
+END
+```
+
+Output:
+```
+Hello, Alice!
+Today is Saturday.
+```
+
+### Variant: `<<-` (with dash)
+
+Using `<<-` allows **leading tabs** (not spaces) to be stripped from the content and closing delimiter — useful for indented code:
+
+```bash
+if true; then
+    cat <<- EOF
+		This line has a leading tab (will be stripped)
+	EOF
+fi
+```
+
+### Variant: `<< 'EOF'` (quoted delimiter)
+
+Quoting the delimiter **disables** variable/command expansion:
+
+```bash
+cat << 'EOF'
+This $VAR will NOT be expanded.
+EOF
+```
+
+Output:
+```
+This $VAR will NOT be expanded.
+```

@@ -1,0 +1,86 @@
+---
+title: "Bash Scrpit: Strick Mode"
+---
+
+What's this do at the beginning of bash script?
+
+```bash
+set -euo pipefail
+```
+
+This is often called the **"strict mode"** or **"safe mode"** for bash scripts. It combines several options that make scripts fail fast and avoid silent errors.
+
+Here's what each flag does:
+
+```
+set -euo pipefail
+     │││ │
+     │││ └─── pipefail: Fail if ANY command in a pipeline fails
+     ││└───── o: Enable option by name (here: "pipefail")
+     │└────── u: Treat unset variables as errors
+     └─────── e: Exit immediately on error
+```
+
+---
+
+**`-e`** (errexit) — Exit on any command failure
+
+```bash
+# Without -e: script continues after error
+rm non_existent_file.txt   # fails, but script keeps going
+echo "This still runs"
+
+# With -e: script stops at first error
+rm non_existent_file.txt   # fails → script exits here
+echo "This never runs"
+```
+
+---
+
+**`-u`** (nounset) — Error on undefined variables
+
+```bash
+# Without -u: undefined vars silently become empty strings
+echo "Hello, $NAEM"   # typo → prints "Hello, "
+
+# With -u: undefined vars cause an error
+echo "Hello, $NAEM"   # → error: NAEM: unbound variable
+```
+
+---
+
+**`-o pipefail`** — Catch errors in pipelines
+
+```bash
+# Without pipefail: only the LAST command's exit status matters
+false | true    # exit status = 0 (true succeeded)
+
+# With pipefail: pipeline fails if ANY command fails
+false | true    # exit status = 1 (false failed)
+```
+
+---
+
+**Common complete version:**
+
+```bash
+#!/bin/bash
+set -euo pipefail
+IFS=$'\n\t'       # Optional: safer word splitting
+```
+
+The `IFS` line is sometimes added to prevent issues with spaces in filenames.
+
+---
+
+**When to use it?**
+
+- ✅ Production scripts, automation, CI/CD
+- ✅ Scripts that modify files or systems
+- ⚠️ Be careful with commands that "legitimately" fail (like `grep` returning no matches)
+
+For commands that might fail intentionally, you can use:
+
+```bash
+grep "pattern" file.txt || true   # Won't trigger -e
+```
