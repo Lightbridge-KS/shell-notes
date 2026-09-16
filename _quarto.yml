@@ -33,27 +33,16 @@ book:
       chapters: 
         - text: Here Doc
           href: "contents/tricks/here_documents.qmd"
-        - target: Stick Mode
+        - text: Stick Mode
           href: "contents/tricks/bash-strick-mode.qmd"
-        - target: Parent vs Child Shell
+        - text: Parent vs Child Shell
           href: "contents/tricks/parent-vs-child-shell.qmd"
-    - part: Linux 
-      chapters: 
-        - text: File Permission
-          href: "contents/permission/linux-file-permission.qmd"
-    - part: Server Setup
-      chapters: 
-        - text: Team Server TailScale
-          href: "contents/team-server/team-server-tailscale.qmd"
-        - text: Shared Team Workspace
-          href: "contents/team-server/shared-team-workspace.qmd"
 
 format:
   html:
     theme:
       light:
       - cosmo
-      - brand
       dark: 
       - darkly
     toc-depth: 4
