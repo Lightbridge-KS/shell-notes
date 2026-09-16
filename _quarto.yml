@@ -41,7 +41,12 @@ book:
       chapters: 
         - text: File Permission
           href: "contents/permission/linux-file-permission.qmd"
-
+    - part: Server Setup
+      chapters: 
+        - text: Team Server TailScale
+          href: "contents/team-server/team-server-tailscale.qmd"
+        - text: Shared Team Workspace
+          href: "contents/team-server/shared-team-workspace.qmd"
 
 format:
   html:
